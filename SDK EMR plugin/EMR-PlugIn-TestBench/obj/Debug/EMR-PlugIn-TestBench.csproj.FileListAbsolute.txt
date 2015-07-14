@@ -1,0 +1,11 @@
+\\psf\Home\Desktop\SDK EMR plugin\EMR-PlugIn-TestBench\bin\Debug\EMR.PlugIn.TestBench.dll.config
+\\psf\Home\Desktop\SDK EMR plugin\EMR-PlugIn-TestBench\bin\Debug\EMR.PlugIn.TestBench.dll
+\\psf\Home\Desktop\SDK EMR plugin\EMR-PlugIn-TestBench\bin\Debug\EMR.PlugIn.TestBench.pdb
+\\psf\Home\Desktop\SDK EMR plugin\EMR-PlugIn-TestBench\bin\Debug\EMR.PlugIn.Basic.dll
+\\psf\Home\Desktop\SDK EMR plugin\EMR-PlugIn-TestBench\bin\Debug\EMR.PlugIn.Basic.pdb
+\\psf\Home\Desktop\SDK EMR plugin\EMR-PlugIn-TestBench\obj\Debug\EMR-PlugIn-TestBench.csprojResolveAssemblyReference.cache
+\\psf\Home\Desktop\SDK EMR plugin\EMR-PlugIn-TestBench\obj\Debug\EMR.PlugIn.TestBench.Properties.Resources.resources
+\\psf\Home\Desktop\SDK EMR plugin\EMR-PlugIn-TestBench\obj\Debug\EMR.PlugIn.TestBench.TestBenchForm.resources
+\\psf\Home\Desktop\SDK EMR plugin\EMR-PlugIn-TestBench\obj\Debug\EMR-PlugIn-TestBench.csproj.GenerateResource.Cache
+\\psf\Home\Desktop\SDK EMR plugin\EMR-PlugIn-TestBench\obj\Debug\EMR.PlugIn.TestBench.dll
+\\psf\Home\Desktop\SDK EMR plugin\EMR-PlugIn-TestBench\obj\Debug\EMR.PlugIn.TestBench.pdb
