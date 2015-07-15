@@ -11,12 +11,12 @@ namespace EMR.PlugIn.Basic
 
   public class EmrPlugIn : InddEmrPlugIn
   {
-
+  
     #region - PlugIn Information - static -
 
     /// <summary>
     /// Name shown in the EMR selection drop down list.</summary>
-    /// <remarks>required</remarks>
+     /// <remarks>required</remarks>
     public static string Name
     {
       get { return Properties.Resources.PlugInName; }
@@ -145,6 +145,11 @@ namespace EMR.PlugIn.Basic
 
       //starts watching for files, this could initiate a call
       StartPlugIn();
+      //PROGRAMAR
+      var cmdParameters = new Dictionary<string, string>();
+      //if (!String.IsNullOrEmpty(textBoxOrderID.Text))
+      cmdParameters.Add(Commands.AddToWorklist.OrderID, "22");
+      SendCommand(Commands.AddToWorklist.Command, cmdParameters);
       return true;
     }
 
@@ -678,9 +683,139 @@ namespace EMR.PlugIn.Basic
         }
       }
     }
+
+    private void SendCommand(string command, Dictionary<string, string> cmdParameters)
+    {
+
+        StringBuilder sb = new System.Text.StringBuilder();
+
+        using (System.Xml.XmlTextWriter xmlWriter = new System.Xml.XmlTextWriter(new System.IO.StringWriter(sb, CultureInfo.InvariantCulture)))
+        {
+            xmlWriter.WriteStartDocument();
+            xmlWriter.WriteStartElement("ndd");
+
+            AddCommand(command, xmlWriter, cmdParameters);
+
+            xmlWriter.WriteStartElement("Patients");
+            AddGuiPatient(xmlWriter);
+            xmlWriter.WriteEndElement();//Patients
+            xmlWriter.WriteEndElement();
+            xmlWriter.WriteEndDocument();
+
+            xmlWriter.Flush();
+            xmlWriter.Close();
+
+            Console.Write(xmlWriter);
+        }
+        SendMessage(sb.ToString());
+
+        // ndd internal code
+        //if (textBoxPatientID.Text.StartsWith("Exception", StringComparison.CurrentCultureIgnoreCase))
+        //    throw new Exception("This Exception is for testing purpose");
+    }
+
+    private static void AddCommand(string strCommand, System.Xml.XmlTextWriter xmlWriter)
+    {
+        AddCommand(strCommand, xmlWriter, new Dictionary<string, string>());
+    }
+
+    private static void AddCommand(string strCommand, System.Xml.XmlTextWriter xmlWriter, string strParamName, string strParamValue)
+    {
+        var cmdParameters = new Dictionary<string, string>();
+        cmdParameters.Add(strParamName, strParamValue);
+
+        AddCommand(strCommand, xmlWriter, cmdParameters);
+    }
+
+    private static void AddCommand(string strCommand, System.Xml.XmlTextWriter xmlWriter, params KeyValuePair<string, string>[] cmdParameters)
+    {
+        var cmdParameterList = new Dictionary<string, string>();
+        foreach (var cmdParameter in cmdParameters)
+        {
+            cmdParameterList.Add(cmdParameter.Key, cmdParameter.Value);
+        }
+
+        AddCommand(strCommand, xmlWriter, cmdParameterList);
+    }
+
+    private static void AddCommand(string strCommand, System.Xml.XmlTextWriter xmlWriter, Dictionary<string, string> cmdParameters)
+    {
+        xmlWriter.WriteStartElement("Command");
+        xmlWriter.WriteAttributeString("Type", strCommand);
+
+        foreach (var cmdParameter in cmdParameters)
+        {
+            xmlWriter.WriteStartElement("Parameter");
+            xmlWriter.WriteAttributeString("Name", cmdParameter.Key);
+            xmlWriter.WriteValue(cmdParameter.Value);
+            xmlWriter.WriteEndElement();//Param        
+        }
+
+        xmlWriter.WriteEndElement();//command
+    }
+
+    public void AddGuiPatient(System.Xml.XmlWriter xmlWriter)
+    {
+        xmlWriter.WriteStartElement("Patient");
+        xmlWriter.WriteAttributeString("ID", "linkcare22");
+        xmlWriter.WriteElementString("LastName", "Joan");
+        xmlWriter.WriteElementString("FirstName", "Sanchez");
+        xmlWriter.WriteStartElement("PatientDataAtPresent");
+        xmlWriter.WriteElementString("DateOfBirth", "26-09-2987");
+        xmlWriter.WriteElementString("Gender", "H");
+        xmlWriter.WriteElementString("Height", "1,75");
+        xmlWriter.WriteElementString("Weight", "75");
+        xmlWriter.WriteElementString("Ethnicity", "Caucasico");
+        xmlWriter.WriteEndElement();//PatientDataAtPresent
+        xmlWriter.WriteEndElement();//Patient
+
+            /*
+        //<Patient ID=""PSM-11213"">
+        //      <LastName>Smith</LastName>
+        //      <FirstName>Peter</FirstName>
+        //</Patient>
+        xmlWriter.WriteStartElement("Patient");
+        if (!String.IsNullOrEmpty(textBoxPatientID.Text))
+        {
+            xmlWriter.WriteAttributeString("ID", textBoxPatientID.Text);
+        }
+        if (!String.IsNullOrEmpty(textBoxLastname.Text))
+        {
+            xmlWriter.WriteElementString("LastName", textBoxLastname.Text);
+        }
+        if (!String.IsNullOrEmpty(textBoxLastname.Text))
+        {
+            xmlWriter.WriteElementString("FirstName", textBoxFirstName.Text);
+        }
+
+        xmlWriter.WriteStartElement("PatientDataAtPresent");
+        if (!String.IsNullOrEmpty(dateTimePicker1.Text))
+        {
+            xmlWriter.WriteElementString("DateOfBirth", dateTimePicker1.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+        }
+        if (!String.IsNullOrEmpty(comboBoxGender.Text))
+        {
+            xmlWriter.WriteElementString("Gender", comboBoxGender.Text);
+        }
+        if (!String.IsNullOrEmpty(maskedTextBoxHeight.Text))
+        {
+            double dHeight;
+            if (Double.TryParse(maskedTextBoxHeight.Text, out dHeight))
+                xmlWriter.WriteElementString("Height", dHeight.ToString(CultureInfo.InvariantCulture));
+        }
+        if (!String.IsNullOrEmpty(numericUpDownWeight.Text))
+        {
+            xmlWriter.WriteElementString("Weight", numericUpDownWeight.Text);
+        }
+        if (!String.IsNullOrEmpty(comboBoxEthnicity.Text))
+        {
+            xmlWriter.WriteElementString("Ethnicity", comboBoxEthnicity.Text);
+        }
+        xmlWriter.WriteEndElement();//PatientDataAtPresent
+
+        xmlWriter.WriteEndElement();//Patient
+        */
+    }
     #endregion
-
-
-  }
-
+    }
 }

@@ -61,7 +61,7 @@ namespace EMR.PlugIn.Basic.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Basic Console and XML PlugIn.
+        ///   Looks up a localized string similar to Linkcare PlugIn.
         /// </summary>
         internal static string PlugInName {
             get {

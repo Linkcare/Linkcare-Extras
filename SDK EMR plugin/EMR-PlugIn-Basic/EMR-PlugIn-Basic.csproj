@@ -49,6 +49,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="XmlClass.cs" />
     <Compile Include="IEmrConfigControl.cs" />
     <Compile Include="SharedConst.cs" />
     <Compile Include="EmrPlugIn.cs" />

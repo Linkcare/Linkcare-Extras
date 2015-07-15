@@ -1,6 +1,8 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 11.00
-# Visual Studio 2010
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.22823.1
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EMR-PlugIn-Basic", "EMR-PlugIn-Basic\EMR-PlugIn-Basic.csproj", "{EFF08548-BDA9-466D-BE72-AA46BED4B3EF}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EMR-PlugIn-TestBench", "EMR-PlugIn-TestBench\EMR-PlugIn-TestBench.csproj", "{2ADA1CB8-9CF7-4AF9-9EB0-C57C4E2330EA}"
