@@ -632,8 +632,6 @@ namespace EMR.PlugIn.Basic
     protected virtual string ReturnSearchPatientResult(Dictionary<string, string> parameters)
     {
       //TODO: add your query here !!!
-      SoapClient.CallWebService();
-
       using (System.Xml.XmlWriter xmlWriter = new System.Xml.XmlTextWriter(XmlExchangeFile, Encoding.UTF8))
       {
         try
@@ -707,12 +705,15 @@ namespace EMR.PlugIn.Basic
 
             Console.Write(xmlWriter);
         }
-        SendMessage(sb.ToString());
+            SendMessage(sb.ToString());
+            string token = SoapClient.CallSessionDiscover();
+            string aux = SoapClient.CallTaskListOverdue(token);
+            Console.Write("Este es el token:" + token);
 
-        // ndd internal code
-        //if (textBoxPatientID.Text.StartsWith("Exception", StringComparison.CurrentCultureIgnoreCase))
-        //    throw new Exception("This Exception is for testing purpose");
-    }
+            // ndd internal code
+            //if (textBoxPatientID.Text.StartsWith("Exception", StringComparison.CurrentCultureIgnoreCase))
+            //    throw new Exception("This Exception is for testing purpose");
+        }
 
     private static void AddCommand(string strCommand, System.Xml.XmlTextWriter xmlWriter)
     {
