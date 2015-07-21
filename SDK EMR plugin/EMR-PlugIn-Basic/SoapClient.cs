@@ -4,6 +4,7 @@ using System.Net;
 using System.IO;
 using System.Text;
 using System.Web;
+using System.Collections.Generic;
 public class SoapClient {
     private static string CallWebService(string xml)
     {
@@ -87,7 +88,7 @@ public class SoapClient {
         return token;
     }
 
-    public static string CallTaskListOverdue(string token)
+    public static Dictionary<string, string>[] CallTaskListOverdue(string token)
     {
         string xml = @"<lin:task_list_overdue soapenv:encodingStyle=""http://schemas.xmlsoap.org/soap/encoding/"">
          <session xsi:type=""xsd:string"">" + token + @"</session>
@@ -95,8 +96,17 @@ public class SoapClient {
          <offset xsi:type=""xsd:string"">0</offset>
       </lin:task_list_overdue>";
         string soapResult = CallWebService(xml);
-        string task_id = ParseTaskId(soapResult);
-        return token;
+        Dictionary<string, string>[] admissionIds = ParseAdmissionIds(soapResult);
+        return admissionIds;
+    }
+
+    public static void CallTaskClose(string task_id, string token)
+    {
+        string xml = @"<lin:task_close soapenv:encodingStyle=""http://schemas.xmlsoap.org/soap/encoding/"">
+         <session xsi:type=""xsd:string"">" + token + @"</session>
+         <task_id xsi:type=""xsd:string"">" + task_id + @"</task_id>
+      </lin:task_close>";
+        string soapResult = CallWebService(xml);
     }
 
     private static string ParseToken(string xmlString)
@@ -117,7 +127,7 @@ public class SoapClient {
         return token;
     }
 
-    private static string ParseTaskId(string xmlString)
+    private static Dictionary<string, string>[] ParseAdmissionIds(string xmlString)
     {
         XmlDocument doc = new XmlDocument();
         doc.LoadXml(xmlString);
@@ -126,13 +136,34 @@ public class SoapClient {
 
         xmlString = HttpUtility.HtmlDecode(ResultUnique.InnerXml.ToString());
         doc.LoadXml(xmlString);
-        XmlNodeList resultTask = doc.GetElementsByTagName("task");
+        XmlNodeList resultTasks = doc.GetElementsByTagName("task");
 
-        for (int i = 0; i < resultTask.Count; i++)
+        //string[] AdmissionsArray = new string[resultAdmissions.Count];
+        Dictionary<string, string>[] admissions = new Dictionary<string, string>[resultTasks.Count];
+
+        for (int i = 0; i < resultTasks.Count; i++)
         {
-            Console.WriteLine(resultTask[i].InnerXml);
+            XmlNodeList task_id = resultTasks[i].SelectNodes("ref");
+            XmlNodeList data = resultTasks[i].SelectNodes("data");
+            XmlNodeList admission = data[0].SelectNodes("admission");
+            XmlNodeList admission_id = admission[0].SelectNodes("ref");
+            XmlNodeList admission_case = admission[0].SelectNodes("case");
+            XmlNodeList admission_fullname = admission_case[0].SelectNodes("full_name");
+            XmlNodeList admission_gender = admission_case[0].SelectNodes("gender");
+            XmlNodeList admission_bdate = admission_case[0].SelectNodes("bdate");
+            //XmlNodeList admission_fullname = resultAdmissions[i].SelectNodes("full_name");
+            //XmlNodeList admission_gender = resultAdmissions[i].SelectNodes("gender");
+            //XmlNodeList admission_bdate = resultAdmissions[i].SelectNodes("bdate");
+            admissions[i] = new Dictionary<string, string>();
+            admissions[i].Add("task_id", task_id[0].FirstChild.Value);
+            admissions[i].Add("admission_id", admission_id[0].FirstChild.Value);
+            //admissions[i].Add("case", admission_case[0].FirstChild.Value);
+            admissions[i].Add("fullname", admission_fullname[0].FirstChild.Value);
+            admissions[i].Add("gender", admission_gender[0].FirstChild.Value);
+            admissions[i].Add("bdate", admission_bdate[0].FirstChild.Value);
         }
 
+        //Console.WriteLine(AdmissionsArray);
         //ResultUnique.InnerXml = ResultUnique.InnerXml.Replace("&lt;", "<");
         //Console.WriteLine(ResultUnique.InnerXml);
 
@@ -150,16 +181,16 @@ public class SoapClient {
         }
         */
 
-        StringBuilder output = new StringBuilder();
-        string taskId = null;
+        //StringBuilder output = new StringBuilder();
+        //string taskId = null;
 
         // Create an XmlReader
-        using (XmlReader reader = XmlReader.Create(new StringReader(xmlString)))
-        {
-            reader.ReadToFollowing("result");
-            output.AppendLine(reader.ReadElementContentAsString());
+        //using (XmlReader reader = XmlReader.Create(new StringReader(xmlString)))
+        //{
+            //reader.ReadToFollowing("result");
+            //output.AppendLine(reader.ReadElementContentAsString());
             //taskId = output.ToString();
-            Console.Write("hola:" + output);
+            //Console.Write("hola:" + output);
             /*
             while (reader.Read())
             {
@@ -183,8 +214,8 @@ public class SoapClient {
             taskId = output.ToString();
             Console.Write("Este es el taskId:" + taskId);
             */
-        }
-        return taskId;
+        //}
+        return admissions;
     }
 
     #endregion

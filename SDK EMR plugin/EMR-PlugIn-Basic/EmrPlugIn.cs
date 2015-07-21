@@ -145,11 +145,28 @@ namespace EMR.PlugIn.Basic
 
       //starts watching for files, this could initiate a call
       StartPlugIn();
+
       //PROGRAMAR
+      string token = SoapClient.CallSessionDiscover();
+      Console.Write("Este es el token:" + token);
+      Dictionary<string, string>[] data = SoapClient.CallTaskListOverdue(token);
       var cmdParameters = new Dictionary<string, string>();
+
       //if (!String.IsNullOrEmpty(textBoxOrderID.Text))
-      cmdParameters.Add(Commands.AddToWorklist.OrderID, "22");
-      SendCommand(Commands.AddToWorklist.Command, cmdParameters);
+
+      //por cada una de las tareas, hacer un AddWorkList
+      for (int i = 0; i < data.Length; i++){
+            cmdParameters.Clear();
+            cmdParameters.Add(Commands.AddToWorklist.OrderID, data[i]["task_id"]);
+            SendCommand(Commands.AddToWorklist.Command, cmdParameters, data[i]);
+      }
+
+      //cerrar cada una de las tareas
+      for (int i = 0; i < data.Length; i++)
+      {
+            SoapClient.CallTaskClose(data[i]["task_id"], token);
+      }
+
       return true;
     }
 
@@ -573,8 +590,10 @@ namespace EMR.PlugIn.Basic
     /// <returns></returns>
     protected virtual List<String> GetSupportedFeatures()
     {
-      //add your supported features here
-      return new List<string>();
+        //add your supported features here
+        List<string> features = new List<string>();
+        features.Add(Commands.SupportedFeatures.Worklist);
+        return features;
     }
 
     /// <summary>
@@ -610,14 +629,6 @@ namespace EMR.PlugIn.Basic
         xmlWriter.WriteEndElement();
         xmlWriter.WriteEndElement();
         xmlWriter.WriteEndDocument();
-        //                xmlWriter.WriteString(@"
-        //<ndd>
-        //<command>Test xml data</command><Patients>
-        //    <Patient ID=""PSM-11213"">
-        //      <LastName>Smith</LastName>
-        //      <FirstName>Peter</FirstName></Patient>
-        //</Patients>
-        //</ndd>");
         xmlWriter.Flush();
         xmlWriter.Close();
         return sb.ToString();
@@ -682,7 +693,7 @@ namespace EMR.PlugIn.Basic
       }
     }
 
-    private void SendCommand(string command, Dictionary<string, string> cmdParameters)
+    private void SendCommand(string command, Dictionary<string, string> cmdParameters, Dictionary<string, string> data)
     {
 
         StringBuilder sb = new System.Text.StringBuilder();
@@ -695,7 +706,8 @@ namespace EMR.PlugIn.Basic
             AddCommand(command, xmlWriter, cmdParameters);
 
             xmlWriter.WriteStartElement("Patients");
-            AddGuiPatient(xmlWriter);
+
+            AddGuiPatient(xmlWriter, data);
             xmlWriter.WriteEndElement();//Patients
             xmlWriter.WriteEndElement();
             xmlWriter.WriteEndDocument();
@@ -706,9 +718,6 @@ namespace EMR.PlugIn.Basic
             Console.Write(xmlWriter);
         }
             SendMessage(sb.ToString());
-            string token = SoapClient.CallSessionDiscover();
-            string aux = SoapClient.CallTaskListOverdue(token);
-            Console.Write("Este es el token:" + token);
 
             // ndd internal code
             //if (textBoxPatientID.Text.StartsWith("Exception", StringComparison.CurrentCultureIgnoreCase))
@@ -755,18 +764,18 @@ namespace EMR.PlugIn.Basic
         xmlWriter.WriteEndElement();//command
     }
 
-    public void AddGuiPatient(System.Xml.XmlWriter xmlWriter)
+    public void AddGuiPatient(System.Xml.XmlWriter xmlWriter, Dictionary<string, string> data)
     {
         xmlWriter.WriteStartElement("Patient");
-        xmlWriter.WriteAttributeString("ID", "linkcare22");
-        xmlWriter.WriteElementString("LastName", "Joan");
-        xmlWriter.WriteElementString("FirstName", "Sanchez");
+        xmlWriter.WriteAttributeString("ID", data["admission_id"]);
+        xmlWriter.WriteElementString("LastName", data["surname"]);
+        xmlWriter.WriteElementString("FirstName", data["name"]); 
         xmlWriter.WriteStartElement("PatientDataAtPresent");
-        xmlWriter.WriteElementString("DateOfBirth", "26-09-2987");
-        xmlWriter.WriteElementString("Gender", "H");
-        xmlWriter.WriteElementString("Height", "1,75");
+        xmlWriter.WriteElementString("DateOfBirth", data["bdate"]);
+        xmlWriter.WriteElementString("Gender", (data["gender"].Equals("M")) ? "Male" : "Female"); 
+        xmlWriter.WriteElementString("Height", "1.75");
         xmlWriter.WriteElementString("Weight", "75");
-        xmlWriter.WriteElementString("Ethnicity", "Caucasico");
+        xmlWriter.WriteElementString("Ethnicity", "Caucasian");
         xmlWriter.WriteEndElement();//PatientDataAtPresent
         xmlWriter.WriteEndElement();//Patient
 

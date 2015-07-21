@@ -1,7 +1,6 @@
 \\psf\Home\Desktop\SDK EMR plugin\EMR-PlugInTester\bin\Debug\EMR.PlugInTester.exe.config
 \\psf\Home\Desktop\SDK EMR plugin\EMR-PlugInTester\bin\Debug\EMR.PlugInTester.exe
 \\psf\Home\Desktop\SDK EMR plugin\EMR-PlugInTester\bin\Debug\EMR.PlugInTester.pdb
-\\psf\Home\Desktop\SDK EMR plugin\EMR-PlugInTester\obj\Debug\EMR-PlugInTester.csprojResolveAssemblyReference.cache
 \\psf\Home\Desktop\SDK EMR plugin\EMR-PlugInTester\obj\Debug\EMR.PlugInTester.TestForm.resources
 \\psf\Home\Desktop\SDK EMR plugin\EMR-PlugInTester\obj\Debug\EMR.PlugInTester.Properties.Resources.resources
 \\psf\Home\Desktop\SDK EMR plugin\EMR-PlugInTester\obj\Debug\EMR-PlugInTester.csproj.GenerateResource.Cache
