@@ -100,16 +100,14 @@ public class SoapClient {
         return admissionIds;
     }
 
-    /*
     public static void CallTaskClose(string task_id, string token)
     {
         string xml = @"<lin:task_close soapenv:encodingStyle=""http://schemas.xmlsoap.org/soap/encoding/"">
          <session xsi:type=""xsd:string"">" + token + @"</session>
-         <task_id xsi:type=""xsd:string"">" + task_id + @"</task_id>
+         <task xsi:type=""xsd:string"">" + task_id + @"</task>
       </lin:task_close>";
         string soapResult = CallWebService(xml);
     }
-    */
 
     public static string CallCaseInsert(string cip, string token)
     {

@@ -162,10 +162,10 @@ namespace EMR.PlugIn.Basic
       }
 
       //cerrar cada una de las tareas
-      //for (int i = 0; i < data.Length; i++)
-      //{
-      //      SoapClient.CallTaskClose(data[i]["task_id"], token);
-      //}
+      for (int i = 0; i < data.Length; i++)
+      {
+            SoapClient.CallTaskClose(data[i]["task_id"], token);
+      }
 
       //Dictionary<string, string> parameterList = new Dictionary<string, string>();
       //parameterList.Add("key", "value");
