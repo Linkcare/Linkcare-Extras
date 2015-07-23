@@ -162,10 +162,14 @@ namespace EMR.PlugIn.Basic
       }
 
       //cerrar cada una de las tareas
-      for (int i = 0; i < data.Length; i++)
-      {
-            SoapClient.CallTaskClose(data[i]["task_id"], token);
-      }
+      //for (int i = 0; i < data.Length; i++)
+      //{
+      //      SoapClient.CallTaskClose(data[i]["task_id"], token);
+      //}
+
+      //Dictionary<string, string> parameterList = new Dictionary<string, string>();
+      //parameterList.Add("key", "value");
+      //string patients_finded = ReturnSearchPatientResult(parameterList);
 
       return true;
     }
@@ -593,6 +597,7 @@ namespace EMR.PlugIn.Basic
         //add your supported features here
         List<string> features = new List<string>();
         features.Add(Commands.SupportedFeatures.Worklist);
+        features.Add(Commands.SupportedFeatures.SearchPatients);
         return features;
     }
 
@@ -643,6 +648,19 @@ namespace EMR.PlugIn.Basic
     protected virtual string ReturnSearchPatientResult(Dictionary<string, string> parameters)
     {
       //TODO: add your query here !!!
+
+      string token = SoapClient.CallSessionDiscover();
+      string cip = parameters["PatientID"];
+      string case_id = SoapClient.CallCaseInsert(cip, token);
+      Dictionary<string, string> patient_finded = SoapClient.CallCaseGet(case_id, token);
+
+      patient_finded.Add("admission_id", cip);
+
+      var cmdParameters = new Dictionary<string, string>();
+      cmdParameters.Clear();
+      cmdParameters.Add(Commands.AddToWorklist.OrderID, patient_finded["admission_id"]);
+      SendCommand(Commands.AddToWorklist.Command, cmdParameters, patient_finded);
+
       using (System.Xml.XmlWriter xmlWriter = new System.Xml.XmlTextWriter(XmlExchangeFile, Encoding.UTF8))
       {
         try
@@ -657,14 +675,14 @@ namespace EMR.PlugIn.Basic
           //TODO: fill patient list with your data !!
           MessageBox.Show("Querying EMR system for patients is not implemented.");
           xmlWriter.WriteStartElement("Patient");
-          xmlWriter.WriteAttributeString("ID", "SearchPatient-ID");
-          xmlWriter.WriteElementString("LastName", "Search Last");
-          xmlWriter.WriteElementString("FirstName", "Search First");
+          xmlWriter.WriteAttributeString("ID", patient_finded["admission_id"]);
+          xmlWriter.WriteElementString("LastName", patient_finded["fullname"]);
+          xmlWriter.WriteElementString("FirstName", patient_finded["nickname"]);
 
           xmlWriter.WriteStartElement("PatientDataAtPresent");
 
-          xmlWriter.WriteElementString("DateOfBirth", "1956-07-28");
-          xmlWriter.WriteElementString("Gender", "Female");
+          xmlWriter.WriteElementString("DateOfBirth", patient_finded["bdate"]);
+          xmlWriter.WriteElementString("Gender", (patient_finded["gender"].Equals("M")) ? "Male" : "Female");
           xmlWriter.WriteElementString("Height", "1.82");
           xmlWriter.WriteElementString("Weight", "64");
           xmlWriter.WriteElementString("Ethnicity", "Caucasian");
@@ -684,6 +702,7 @@ namespace EMR.PlugIn.Basic
           //</ndd>");
           xmlWriter.Flush();
           xmlWriter.Close();
+
           return XmlExchangeFile;
         }
         finally
@@ -768,8 +787,8 @@ namespace EMR.PlugIn.Basic
     {
         xmlWriter.WriteStartElement("Patient");
         xmlWriter.WriteAttributeString("ID", data["admission_id"]);
-        xmlWriter.WriteElementString("LastName", data["surname"]);
-        xmlWriter.WriteElementString("FirstName", data["name"]); 
+        xmlWriter.WriteElementString("LastName", data["fullname"]);
+        xmlWriter.WriteElementString("FirstName", data["fullname"]); 
         xmlWriter.WriteStartElement("PatientDataAtPresent");
         xmlWriter.WriteElementString("DateOfBirth", data["bdate"]);
         xmlWriter.WriteElementString("Gender", (data["gender"].Equals("M")) ? "Male" : "Female"); 
