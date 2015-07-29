@@ -707,7 +707,6 @@
  	{
  	  	//��ʾ���ص�����
  		displayBatteryLow();
- 		Graphics_repaint();
  		System_delay(1000);
  	}
 
