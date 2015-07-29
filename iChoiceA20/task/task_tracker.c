@@ -317,7 +317,7 @@ void task_tracker(void *prg)
 					
 					Graphics_init();
 					
-					Timer_ScreenOn = 0;
+					Timer_NoMotion = 0;
 					Timer_ScreenOn = 0;
 					
 					break;
