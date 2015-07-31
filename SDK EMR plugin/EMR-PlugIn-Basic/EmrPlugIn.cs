@@ -135,6 +135,7 @@ namespace EMR.PlugIn.Basic
     /// <remarks>required</remarks>
     public virtual bool Initialize(Dictionary<string, string> configValues)
     {
+      SoapClient.readConfigurationFile();
       //load saved configuration values
       LoadingConfigValues(configValues);
 
@@ -148,7 +149,6 @@ namespace EMR.PlugIn.Basic
 
       //PROGRAMAR
       string token = SoapClient.CallSessionDiscover();
-      Console.Write("Este es el token:" + token);
       Dictionary<string, string>[] data = SoapClient.CallTaskListOverdue(token);
       var cmdParameters = new Dictionary<string, string>();
 
@@ -156,20 +156,21 @@ namespace EMR.PlugIn.Basic
 
       //por cada una de las tareas, hacer un AddWorkList
       for (int i = 0; i < data.Length; i++){
-            cmdParameters.Clear();
-            cmdParameters.Add(Commands.AddToWorklist.OrderID, data[i]["task_id"]);
-            SendCommand(Commands.AddToWorklist.Command, cmdParameters, data[i]);
+            if (data[i]!=null)
+            {
+                cmdParameters.Clear();
+                cmdParameters.Add(Commands.AddToWorklist.OrderID, data[i]["task_id"]);
+                SendCommand(Commands.AddToWorklist.Command, cmdParameters, data[i]);
+            }
       }
 
       //cerrar cada una de las tareas
+      /*
       for (int i = 0; i < data.Length; i++)
       {
             SoapClient.CallTaskClose(data[i]["task_id"], token);
       }
-
-      //Dictionary<string, string> parameterList = new Dictionary<string, string>();
-      //parameterList.Add("key", "value");
-      //string patients_finded = ReturnSearchPatientResult(parameterList);
+      */
 
       return true;
     }
@@ -387,7 +388,8 @@ namespace EMR.PlugIn.Basic
     {
       // Create the reader.
       System.Xml.XmlReader reader = System.Xml.XmlReader.Create(new System.IO.StringReader(strXmlMessage));
-      string strResponse = ReceiveXmlMessage(reader);
+      System.IO.File.WriteAllText(@"C:\Users\jcarballo\Desktop\WriteText.txt", strXmlMessage);
+      string strResponse = ReceiveXmlMessage(reader, strXmlMessage);
 
       if (UseCmdFile) //if messages are handle outside, the above ReceiveXmlMessage() needs to be adapted
       {
@@ -416,9 +418,10 @@ namespace EMR.PlugIn.Basic
     /// <summary>
     /// Handle messages sent by EasyWarePro</summary>
     /// <returns>Response to EasyWarePro</returns>
-    protected string ReceiveXmlMessage(System.Xml.XmlReader reader)
+    protected string ReceiveXmlMessage(System.Xml.XmlReader reader, string strXmlMessage = null)
     {
       string strCommand = "";
+      bool is_test_result_command = false;
 
       if (reader.ReadToFollowing("Command"))
       //if (reader.Name == "Command")
@@ -454,13 +457,17 @@ namespace EMR.PlugIn.Basic
           //break;
           case Commands.SearchPatients.Command: // "SearchPatient":
             //list of patients
+            //MessageBox.Show("message box de search result");
+            MessageBox.Show("Click Accept button to search patient.");
             return ReturnSearchPatientResult(parameterList);
 
           case Commands.TestResult.Command: // "TestResult":
             //TransmitData
             //TODO: Add your code here!!!!!!!!!!!
-            MessageBox.Show("Returning test results to your EMR is not implemented.");
-            return "";
+            //MessageBox.Show("Returning test results to your EMR is not implemented.");
+            MessageBox.Show("The Web Service Linkcare calls are in process.");
+            is_test_result_command = true;
+            break;
           default:
             return @"
               <ndd>
@@ -473,6 +480,7 @@ namespace EMR.PlugIn.Basic
         }
       }
 
+      string strPatientID = "";
       while (reader.Read())
       {
         if (reader.Name == "Patients")
@@ -482,7 +490,7 @@ namespace EMR.PlugIn.Basic
           {
             if (patientReader.ReadAttributeValue() && patientReader.AttributeCount > 0)
             {
-              string strPatientID = patientReader.GetAttribute("ID");
+              strPatientID = patientReader.GetAttribute("ID");
               string strPatientNone = patientReader.GetAttribute("NotAvailable");
             }
 
@@ -500,8 +508,12 @@ namespace EMR.PlugIn.Basic
 
           }
         }
+      }
 
-
+      strPatientID = "22391";
+      if ((is_test_result_command) && (!strPatientID.Equals("")))
+      {
+        returnTestResult(strPatientID, strXmlMessage);
       }
 
       //Console.Beep();
@@ -653,8 +665,8 @@ namespace EMR.PlugIn.Basic
       string cip = parameters["PatientID"];
       string case_id = SoapClient.CallCaseInsert(cip, token);
       Dictionary<string, string> patient_finded = SoapClient.CallCaseGet(case_id, token);
-
-      patient_finded.Add("admission_id", cip);
+      string admission_id = SoapClient.CallAdmissionListCase(case_id, token);
+      patient_finded.Add("admission_id", admission_id);
 
       var cmdParameters = new Dictionary<string, string>();
       cmdParameters.Clear();
@@ -673,11 +685,12 @@ namespace EMR.PlugIn.Basic
           xmlWriter.WriteStartElement("Patients");
 
           //TODO: fill patient list with your data !!
-          MessageBox.Show("Querying EMR system for patients is not implemented.");
+          //MessageBox.Show("Querying EMR system for patients is not implemented.");
+          MessageBox.Show("Patient added to Worklist.");
           xmlWriter.WriteStartElement("Patient");
           xmlWriter.WriteAttributeString("ID", patient_finded["admission_id"]);
-          xmlWriter.WriteElementString("LastName", patient_finded["fullname"]);
-          xmlWriter.WriteElementString("FirstName", patient_finded["nickname"]);
+          xmlWriter.WriteElementString("LastName", patient_finded["surname"]);
+          xmlWriter.WriteElementString("FirstName", patient_finded["name"]);
 
           xmlWriter.WriteStartElement("PatientDataAtPresent");
 
@@ -741,7 +754,7 @@ namespace EMR.PlugIn.Basic
             // ndd internal code
             //if (textBoxPatientID.Text.StartsWith("Exception", StringComparison.CurrentCultureIgnoreCase))
             //    throw new Exception("This Exception is for testing purpose");
-        }
+    }
 
     private static void AddCommand(string strCommand, System.Xml.XmlTextWriter xmlWriter)
     {
@@ -787,8 +800,8 @@ namespace EMR.PlugIn.Basic
     {
         xmlWriter.WriteStartElement("Patient");
         xmlWriter.WriteAttributeString("ID", data["admission_id"]);
-        xmlWriter.WriteElementString("LastName", data["fullname"]);
-        xmlWriter.WriteElementString("FirstName", data["fullname"]); 
+        xmlWriter.WriteElementString("LastName", data["surname"]);
+        xmlWriter.WriteElementString("FirstName", data["name"]); 
         xmlWriter.WriteStartElement("PatientDataAtPresent");
         xmlWriter.WriteElementString("DateOfBirth", data["bdate"]);
         xmlWriter.WriteElementString("Gender", (data["gender"].Equals("M")) ? "Male" : "Female"); 
@@ -798,7 +811,7 @@ namespace EMR.PlugIn.Basic
         xmlWriter.WriteEndElement();//PatientDataAtPresent
         xmlWriter.WriteEndElement();//Patient
 
-            /*
+        /*
         //<Patient ID=""PSM-11213"">
         //      <LastName>Smith</LastName>
         //      <FirstName>Peter</FirstName>
@@ -845,6 +858,17 @@ namespace EMR.PlugIn.Basic
         xmlWriter.WriteEndElement();//Patient
         */
     }
+
+    private static void returnTestResult(string admission_id, string strXmlMessage)
+    {
+        string token = SoapClient.CallSessionDiscover();
+        string task_id = SoapClient.CallTaskInsertByTaskCode(admission_id, token);
+        string form_id = SoapClient.CallTaskFormList(task_id, token);
+        string answer_id = SoapClient.CallFormGetSummary(form_id, token);
+        SoapClient.CallFormSetAnswer(token, form_id, answer_id, admission_id, strXmlMessage);
+        MessageBox.Show("Form " + form_id + " updated.");
+    }
+
     #endregion
     }
 }
