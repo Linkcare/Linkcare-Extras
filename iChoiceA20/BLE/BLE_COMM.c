@@ -338,6 +338,8 @@ static lpsa_i8	FunBleIdleC (void)
 					//��������4λ���룻
 					BleTools.PWD = getIDcode();
 					pwd = BleTools.PWD;
+                                        
+                                        Calculate_init();
 
 					Flag.Pwd		  = 2;
 
