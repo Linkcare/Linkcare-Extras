@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+# chkconfig: 2345 95 20
+# description: Puma and php-Resque service
+
+
+# path to rvm scripts:
+[ -s "/usr/local/rvm/scripts/rvm" ] && . "/usr/local/rvm/scripts/rvm"
+
+# configuration parameters can be set like options:
+PORT=1500
+INSTANCE=TEST
+APP_DIR=/var/lib/puma/test.linkcare.es
+WS_DIR=/var/www/test.linkcare.es/ws
+ENV=production
+
+
+# example of use of the script:
+# puma_dev -p 666 -i DEV2 -a /var/lib/puma/dev2.linkcare.es -e production -w /var/www/dev4.linkcare.es/ws
+
+
+while getopts p:i:a:e: opt; do
+  case $opt in
+  p)
+      PORT=$OPTARG
+      ;;
+  i)
+      INSTANCE=$OPTARG
+      ;;
+  a)
+      APP_DIR=$OPTARG
+      ;;
+  e)
+      ENV=$OPTARG
+      ;;
+  w)
+      WS_DIR=$OPTARG
+      ;;
+  esac
+done
+
+check(){
+		PID=`/usr/sbin/lsof -iTCP:$PORT`
+		if [ "$PID" != "" ]; then
+    			echo "ERROR: port $PORT is already in use"
+   				echo "Killing process by port = $PORT, PID = $PID :"
+   				sudo kill -9 $PID
+		fi
+		if [ ! -d "$APP_DIR" ]; then
+  			echo "ERROR: Directory $APP_DIR doesnt exist"
+  			mkdir $APP_DIR
+		fi
+		if [ ! -d "$APP_DIR/log" ]; then
+  			echo "ERROR: Directory $APP_DIR/log doesnt exist"
+  			mkdir "$APP_DIR/log"
+  			# create empty log file
+  			# echo -n "" > "$APP_DIR/log/logs.txt"
+  			chmod -R 777 "$APP_DIR/log"
+		fi
+
+}
+start() {
+	check
+	echo "Using default parameters: PORT = [$PORT]; INSTANCE=[$INSTANCE]; APP_DIR=[$APP_DIR]; ENV=[$ENV];"
+	su -l jenkins -c 'cd '"${APP_DIR}"';rvm use 1.9.3@linkcare;echo '"${ENV}"';echo '"${PORT}"';puma -e '"${ENV}"' -d -p '"${PORT}"' >>'"${APP_DIR}"'/log/logs.log & echo $! > '"${APP_DIR}"'/program.pid;'
+  # start resque worker for each instance and save PID in file iin ws tmp folder
+  cd $WS_DIR;
+  instance=$(echo "$INSTANCE" | tr '[:upper:]' '[:lower:]')
+  APP_INCLUDE=background/init.php QUEUE=$instance COUNT=1 INTERVAL=2 VVERBOSE=1 php vendor/chrisboulton/php-resque/resque.php & echo $! > $WS_DIR/tmp/resque.pid
+}
+stop(){
+	PID=$(cat $APP_DIR/program.pid)
+    	if ps -p $PID > /dev/null
+			then
+   				echo "Killing process $APP_DIR/program.pid: $PID"
+  			 	kill -9 $PID
+   			else
+   				PID=`/usr/sbin/lsof -t -i:$PORT`
+   				if ps -p $PID > /dev/null
+					then
+   						echo "Killing process $PID by port: $PORT"
+      				kill -9 $PID
+              echo "Done!"
+    			fi
+		fi
+  # send quit signal to resque worker
+  PID=$(cat $WS_DIR/tmp/resque.pid)
+  kill -s QUIT $PID
+}
+
+set_permissions(){
+	if ls -ld `echo $1` | grep -q ^drw-rw-rw-
+	then
+    	continue
+	else
+		echo "Changing permissions for $1 ..."
+    	chmod -R 777 `echo $1`
+	fi
+}
+
+if [[ $# -eq 0 ]] ; then
+	start
+fi
+case "$1" in
+	start)
+		start
+		;;
+    stopall)
+    	pkill -9 -f puma;;
+    stop)
+    	stop
+		 ;;
+	superstop)
+    	kill_process
+		 ;;
+    get_pid)
+		echo `/usr/sbin/lsof -t -i:$PORT`
+		;;
+	install)
+		check
+		set_permissions $APP_DIR/log/logs.log
+		set_permissions $APP_DIR/program.pid
+    set_permissions $WS_DIR/tmp/resque.pid
+		INSTANCE_LOWER=`echo "$INSTANCE" | tr '[:upper:]' '[:lower:]'`
+		SCRIPT_LEFT="puma_"
+		SCRIPT=$SCRIPT_LEFT$INSTANCE_LOWER
+		# check if its installed correctly
+		if (chkconfig --add $SCRIPT); then
+  			echo "$SCRIPT is installed correctly"
+		else
+  			echo echo "ERROR: $SCRIPT is NOT installed correctly"
+		fi
+
+	;;
+	restart)
+		stop
+		start
+	;;
+	*) echo 'Unknown parameter' ;;
+esac
