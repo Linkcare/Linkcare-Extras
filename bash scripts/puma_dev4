@@ -7,11 +7,11 @@
 [ -s "/usr/local/rvm/scripts/rvm" ] && . "/usr/local/rvm/scripts/rvm"
 
 # configuration parameters can be set like options:
-PORT=1500
-INSTANCE=TEST
-APP_DIR=/var/lib/puma/test.linkcare.es
-WS_DIR=/var/www/test.linkcare.es/ws
-ENV=production
+PORT=1503
+INSTANCE=DEV4
+APP_DIR=/var/lib/puma/dev4.linkcare.es
+WS_DIR=/var/www/dev4.linkcare.es/ws
+ENV=development
 
 
 # example of use of the script:
@@ -65,26 +65,37 @@ start() {
   # start resque worker for each instance and save PID in file iin ws tmp folder
   cd $WS_DIR;
   instance=$(echo "$INSTANCE" | tr '[:upper:]' '[:lower:]')
-  APP_INCLUDE=background/init.php QUEUE=$instance COUNT=1 INTERVAL=2 VVERBOSE=1 php vendor/chrisboulton/php-resque/resque.php & echo $! > $WS_DIR/tmp/resque.pid
+  APP_INCLUDE=background/init.php QUEUE=$instance PREFIX=$instance COUNT=1 INTERVAL=2 VVERBOSE=0 php vendor/chrisboulton/php-resque/resque.php & echo $! > $WS_DIR/tmp/resque.pid
 }
 stop(){
 	PID=$(cat $APP_DIR/program.pid)
-    	if ps -p $PID > /dev/null
-			then
-   				echo "Killing process $APP_DIR/program.pid: $PID"
-  			 	kill -9 $PID
-   			else
-   				PID=`/usr/sbin/lsof -t -i:$PORT`
-   				if ps -p $PID > /dev/null
-					then
-   						echo "Killing process $PID by port: $PORT"
-      				kill -9 $PID
-              echo "Done!"
-    			fi
-		fi
+  if [[ -n "$PID" ]]
+    then
+      if ps -p $PID > /dev/null
+      then
+          echo "Killing process $APP_DIR/program.pid: $PID"
+          kill -9 $PID > /dev/null
+        else
+          PID=`/usr/sbin/lsof -t -i:$PORT`
+          if [[ -n "$PID" ]]
+            then
+              if ps -p $PID > /dev/null
+              then
+              echo $LINENO
+                  echo "Killing process $PID by port: $PORT"
+                  kill -9 $PID > /dev/null
+                  echo "Done!"
+              fi
+            else
+              echo "service wasn’t started"
+          fi
+      fi
+  else
+  echo "service wasn’t started"
+  fi
   # send quit signal to resque worker
   PID=$(cat $WS_DIR/tmp/resque.pid)
-  kill -s QUIT $PID
+  (kill $PID 2>&1) >/dev/null
 }
 
 set_permissions(){
