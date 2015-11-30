@@ -149,28 +149,49 @@ namespace EMR.PlugIn.Basic
 
       //PROGRAMAR
       string token = SoapClient.CallSessionDiscover();
+      SoapClient.CallSessionLanguage(token, "EN");
+      SoapClient.CallSessionGetRoleList(token);
+      SoapClient.CallSessionRole(token);
+      SoapClient.CallSessionGetTeamList(token);
+      SoapClient.CallSessionSetTeam(token);
       Dictionary<string, string>[] data = SoapClient.CallTaskListOverdue(token);
+      //string admission_id = SoapClient.CallAdmissionListCase(admission_id, token);
+
       var cmdParameters = new Dictionary<string, string>();
 
       //if (!String.IsNullOrEmpty(textBoxOrderID.Text))
 
       //por cada una de las tareas, hacer un AddWorkList
-      for (int i = 0; i < data.Length; i++){
+      for (int i = 0; i < data.Length; i++) {
             if (data[i]!=null)
             {
-                cmdParameters.Clear();
-                cmdParameters.Add(Commands.AddToWorklist.OrderID, data[i]["task_id"]);
-                SendCommand(Commands.AddToWorklist.Command, cmdParameters, data[i]);
-            }
-      }
+                //esta dos llamadas siguientes son para conseguir el cip
+                string case_id = SoapClient.CallAdmissionGet(token, data[i]["admission_id"]);
+                string cip = SoapClient.CallCaseForGetCip(token, case_id);
+                string form_request_id = SoapClient.CallTaskFormList(data[i]["task_id"], token, "true");
+                string height_weight_etnicity = SoapClient.CallFormulaExec(token, form_request_id);
+                SoapClient.CheckPatient(cip, data[i]);
 
-      //cerrar cada una de las tareas
-      /*
-      for (int i = 0; i < data.Length; i++)
+                cmdParameters.Clear();
+                //aqui en vez de cip, antes habia data[i][case_id]
+                cmdParameters.Add(Commands.AddToWorklist.OrderID, cip);
+                SendCommand(Commands.AddToWorklist.Command, cmdParameters, data[i], token, height_weight_etnicity);
+                data[i].Add("cip", cip);
+                //cmdParameters.Add(Commands.RemoveWorklist.OrderID, cip);
+                //SendCommand(Commands.RemoveWorklist.Command, cmdParameters, data[i], token);
+            }
+      } 
+
+      Dictionary<string, string>[] patients_in_file = SoapClient.ReadPatientFile(data.Length);
+      Dictionary<string, string>[] patients_for_remove = SoapClient.ComparePatientsLists(data, patients_in_file);
+
+      foreach (Dictionary<string, string> patient in patients_for_remove)
       {
-            SoapClient.CallTaskClose(data[i]["task_id"], token);
+            cmdParameters.Clear();
+            cmdParameters.Add(Commands.RemoveWorklist.OrderID, patient["cip"]);
+            SendCommand(Commands.RemoveWorklist.Command, cmdParameters, patient, token);
+            SoapClient.RemoveFromFile(patient);
       }
-      */
 
       return true;
     }
@@ -388,7 +409,7 @@ namespace EMR.PlugIn.Basic
     {
       // Create the reader.
       System.Xml.XmlReader reader = System.Xml.XmlReader.Create(new System.IO.StringReader(strXmlMessage));
-      System.IO.File.WriteAllText(@"C:\Users\jcarballo\Desktop\WriteText.txt", strXmlMessage);
+      System.IO.File.WriteAllText(Directory.GetParent(Directory.GetCurrentDirectory()).Parent.FullName + @"\WriteText.txt", strXmlMessage);
       string strResponse = ReceiveXmlMessage(reader, strXmlMessage);
 
       if (UseCmdFile) //if messages are handle outside, the above ReceiveXmlMessage() needs to be adapted
@@ -422,7 +443,7 @@ namespace EMR.PlugIn.Basic
     {
       string strCommand = "";
       bool is_test_result_command = false;
-
+      
       if (reader.ReadToFollowing("Command"))
       //if (reader.Name == "Command")
       {
@@ -458,14 +479,14 @@ namespace EMR.PlugIn.Basic
           case Commands.SearchPatients.Command: // "SearchPatient":
             //list of patients
             //MessageBox.Show("message box de search result");
-            MessageBox.Show("Click Accept button to search patient.");
+            MessageBox.Show("Click Accept button to search patient");
             return ReturnSearchPatientResult(parameterList);
 
           case Commands.TestResult.Command: // "TestResult":
             //TransmitData
             //TODO: Add your code here!!!!!!!!!!!
             //MessageBox.Show("Returning test results to your EMR is not implemented.");
-            MessageBox.Show("The Web Service Linkcare calls are in process.");
+            MessageBox.Show("This may take up to 2 minutes");
             is_test_result_command = true;
             break;
           default:
@@ -480,20 +501,21 @@ namespace EMR.PlugIn.Basic
         }
       }
 
-      string strPatientID = "";
+      string cip = "";
+      
       while (reader.Read())
       {
-        if (reader.Name == "Patients")
+        if (reader.Name=="Patients")
         {
           System.Xml.XmlReader patientReader = reader.ReadSubtree();
           while (patientReader.ReadToFollowing("Patient"))
           {
-            if (patientReader.ReadAttributeValue() && patientReader.AttributeCount > 0)
+            if (patientReader.AttributeCount > 0 && patientReader.GetAttribute("ID") != "")
+            //if (patientReader.ReadAttributeValue())
             {
-              strPatientID = patientReader.GetAttribute("ID");
+              cip = patientReader.GetAttribute("ID");
               string strPatientNone = patientReader.GetAttribute("NotAvailable");
             }
-
             while (patientReader.Read())
             {
               if (patientReader.Name == "FirstName")
@@ -509,11 +531,12 @@ namespace EMR.PlugIn.Basic
           }
         }
       }
+      //MessageBox.Show("nuevo id_paciente: "+ cip);
 
-      strPatientID = "22391";
-      if ((is_test_result_command) && (!strPatientID.Equals("")))
+      //cip = "JOANTEST";
+      if ((is_test_result_command) && (!cip.Equals("")))
       {
-        returnTestResult(strPatientID, strXmlMessage);
+        returnTestResult(cip, strXmlMessage);
       }
 
       //Console.Beep();
@@ -662,72 +685,97 @@ namespace EMR.PlugIn.Basic
       //TODO: add your query here !!!
 
       string token = SoapClient.CallSessionDiscover();
+      SoapClient.CallSessionLanguage(token, "EN");
+      SoapClient.CallSessionGetRoleList(token);
+      SoapClient.CallSessionRole(token);
+      SoapClient.CallSessionGetTeamList(token);
+      SoapClient.CallSessionSetTeam(token);
       string cip = parameters["PatientID"];
       string case_id = SoapClient.CallCaseInsert(cip, token);
-      Dictionary<string, string> patient_finded = SoapClient.CallCaseGet(case_id, token);
+      Dictionary<string, string> patient_finded = SoapClient.CallCaseGet(token, case_id);
       string admission_id = SoapClient.CallAdmissionListCase(case_id, token);
       patient_finded.Add("admission_id", admission_id);
+      patient_finded.Add("cip", cip);
 
-      var cmdParameters = new Dictionary<string, string>();
-      cmdParameters.Clear();
-      cmdParameters.Add(Commands.AddToWorklist.OrderID, patient_finded["admission_id"]);
-      SendCommand(Commands.AddToWorklist.Command, cmdParameters, patient_finded);
-
-      using (System.Xml.XmlWriter xmlWriter = new System.Xml.XmlTextWriter(XmlExchangeFile, Encoding.UTF8))
-      {
-        try
+        if (!patient_finded["admission_id"].Equals(""))
         {
-          xmlWriter.WriteStartDocument();
-          xmlWriter.WriteStartElement("ndd");
-          xmlWriter.WriteStartElement("Command");
-          xmlWriter.WriteAttributeString("Type", Commands.SearchPatientsResult.Command);
-          xmlWriter.WriteEndElement();//command
-          xmlWriter.WriteStartElement("Patients");
+            var cmdParameters = new Dictionary<string, string>();
 
-          //TODO: fill patient list with your data !!
-          //MessageBox.Show("Querying EMR system for patients is not implemented.");
-          MessageBox.Show("Patient added to Worklist.");
-          xmlWriter.WriteStartElement("Patient");
-          xmlWriter.WriteAttributeString("ID", patient_finded["admission_id"]);
-          xmlWriter.WriteElementString("LastName", patient_finded["surname"]);
-          xmlWriter.WriteElementString("FirstName", patient_finded["name"]);
+            string form_request_id = SoapClient.CallTaskFormList(patient_finded["task_id"], token, "true");
+            string height_weight_etnicity = SoapClient.CallFormulaExec(token, form_request_id);
+            SoapClient.CheckPatient(cip, patient_finded);
 
-          xmlWriter.WriteStartElement("PatientDataAtPresent");
+            cmdParameters.Clear();
+            cmdParameters.Add(Commands.AddToWorklist.OrderID, patient_finded["cip"]);
+            SendCommand(Commands.AddToWorklist.Command, cmdParameters, patient_finded, height_weight_etnicity);
 
-          xmlWriter.WriteElementString("DateOfBirth", patient_finded["bdate"]);
-          xmlWriter.WriteElementString("Gender", (patient_finded["gender"].Equals("M")) ? "Male" : "Female");
-          xmlWriter.WriteElementString("Height", "1.82");
-          xmlWriter.WriteElementString("Weight", "64");
-          xmlWriter.WriteElementString("Ethnicity", "Caucasian");
-          xmlWriter.WriteEndElement();//PatientDataAtPresent
+            using (System.Xml.XmlWriter xmlWriter = new System.Xml.XmlTextWriter(XmlExchangeFile, Encoding.UTF8))
+            {
+                try
+                {
+                    xmlWriter.WriteStartDocument();
+                    xmlWriter.WriteStartElement("ndd");
+                    xmlWriter.WriteStartElement("Command");
+                    xmlWriter.WriteAttributeString("Type", Commands.SearchPatientsResult.Command);
+                    xmlWriter.WriteEndElement();//command
+                    xmlWriter.WriteStartElement("Patients");
 
-          xmlWriter.WriteEndElement();//Patient
-          xmlWriter.WriteEndElement();//Patients
-          xmlWriter.WriteEndElement();
-          xmlWriter.WriteEndDocument();
-          //                xmlWriter.WriteString(@"
-          //<ndd>
-          //<command>Test xml data</command><Patients>
-          //    <Patient ID=""PSM-11213"">
-          //      <LastName>Smith</LastName>
-          //      <FirstName>Peter</FirstName></Patient>
-          //</Patients>
-          //</ndd>");
-          xmlWriter.Flush();
-          xmlWriter.Close();
+                    //TODO: fill patient list with your data !!
+                    //MessageBox.Show("Querying EMR system for patients is not implemented.");
+                    MessageBox.Show("Patient added to Worklist.");
+                    xmlWriter.WriteStartElement("Patient");
+                    xmlWriter.WriteAttributeString("ID", patient_finded["cip"]);
+                    xmlWriter.WriteElementString("LastName", patient_finded["surname"]);
+                    xmlWriter.WriteElementString("FirstName", patient_finded["name"]);
 
-          return XmlExchangeFile;
+                    xmlWriter.WriteStartElement("PatientDataAtPresent");
+
+                    xmlWriter.WriteElementString("DateOfBirth", patient_finded["bdate"]);
+                    xmlWriter.WriteElementString("Gender", (patient_finded["gender"].Equals("M")) ? "Male" : "Female");
+                    string[] words = height_weight_etnicity.Split('|');
+                    string height = words[1];
+                    height = transformHeightFormat(height);
+                    string weight = words[0].Substring(0, words[0].Length - 2);
+                    string etnicity = words[2];
+                    xmlWriter.WriteElementString("Height", height);
+                    xmlWriter.WriteElementString("Weight", weight);
+                    xmlWriter.WriteElementString("Ethnicity", etnicity.ToLower());
+                    //xmlWriter.WriteElementString("Height", "182");
+                    //xmlWriter.WriteElementString("Weight", "64");
+                    //xmlWriter.WriteElementString("Ethnicity", "Caucasian");
+                    xmlWriter.WriteEndElement();//PatientDataAtPresent
+
+                    xmlWriter.WriteEndElement();//Patient
+                    xmlWriter.WriteEndElement();//Patients
+                    xmlWriter.WriteEndElement();
+                    xmlWriter.WriteEndDocument();
+                    //                xmlWriter.WriteString(@"
+                    //<ndd>
+                    //<command>Test xml data</command><Patients>
+                    //    <Patient ID=""PSM-11213"">
+                    //      <LastName>Smith</LastName>
+                    //      <FirstName>Peter</FirstName></Patient>
+                    //</Patients>
+                    //</ndd>");
+                    xmlWriter.Flush();
+                    xmlWriter.Close();
+                }
+                finally
+                {
+                    xmlWriter.Close();
+                }
+            }
         }
-        finally
+        else
         {
-          xmlWriter.Close();
+            MessageBox.Show("Patient not found."); 
         }
-      }
+        return XmlExchangeFile;
     }
 
-    private void SendCommand(string command, Dictionary<string, string> cmdParameters, Dictionary<string, string> data)
+        private void SendCommand(string command, Dictionary<string, string> cmdParameters, Dictionary<string, string> data, string token = "", string h_w_e = "")
     {
-
+        //MessageBox.Show("Entra en SEND COMMAND: " + command + ":" + cmdParameters["OrderID"]); 
         StringBuilder sb = new System.Text.StringBuilder();
 
         using (System.Xml.XmlTextWriter xmlWriter = new System.Xml.XmlTextWriter(new System.IO.StringWriter(sb, CultureInfo.InvariantCulture)))
@@ -737,10 +785,14 @@ namespace EMR.PlugIn.Basic
 
             AddCommand(command, xmlWriter, cmdParameters);
 
-            xmlWriter.WriteStartElement("Patients");
+            if (command.Equals("AddToWorklist") || command.Equals("RemoveWorklist"))
+            //if (command.Equals("AddToWorklist"))
+            {
+                xmlWriter.WriteStartElement("Patients");
+                AddGuiPatient(xmlWriter, data, command, token, h_w_e);
+                xmlWriter.WriteEndElement();//Patients
+            }
 
-            AddGuiPatient(xmlWriter, data);
-            xmlWriter.WriteEndElement();//Patients
             xmlWriter.WriteEndElement();
             xmlWriter.WriteEndDocument();
 
@@ -796,18 +848,39 @@ namespace EMR.PlugIn.Basic
         xmlWriter.WriteEndElement();//command
     }
 
-    public void AddGuiPatient(System.Xml.XmlWriter xmlWriter, Dictionary<string, string> data)
+    public void AddGuiPatient(System.Xml.XmlWriter xmlWriter, Dictionary<string, string> data, string command, string token = "", string h_w_e = "")
     {
         xmlWriter.WriteStartElement("Patient");
-        xmlWriter.WriteAttributeString("ID", data["admission_id"]);
+        string cip = "";
+        if (!token.Equals(""))
+        {
+            string case_id = SoapClient.CallAdmissionGet(token, data["admission_id"]);
+            cip = SoapClient.CallCaseForGetCip(token, case_id);
+            xmlWriter.WriteAttributeString("ID", (!cip.Equals("")) ? cip : data["admission_id"]);
+        }
+        else
+        {
+            xmlWriter.WriteAttributeString("ID", data["cip"]);
+        }
         xmlWriter.WriteElementString("LastName", data["surname"]);
         xmlWriter.WriteElementString("FirstName", data["name"]); 
         xmlWriter.WriteStartElement("PatientDataAtPresent");
         xmlWriter.WriteElementString("DateOfBirth", data["bdate"]);
         xmlWriter.WriteElementString("Gender", (data["gender"].Equals("M")) ? "Male" : "Female"); 
-        xmlWriter.WriteElementString("Height", "1.75");
-        xmlWriter.WriteElementString("Weight", "75");
-        xmlWriter.WriteElementString("Ethnicity", "Caucasian");
+        if (!command.Equals("RemoveWorklist"))
+        {
+            string[] words = h_w_e.Split('|');
+            string height = words[1];
+            height = transformHeightFormat(height);
+            string weight = words[0].Substring(0, words[0].Length - 2);
+            string etnicity = words[2];
+            xmlWriter.WriteElementString("Height", height);
+            xmlWriter.WriteElementString("Weight", weight);
+            xmlWriter.WriteElementString("Ethnicity", etnicity.ToLower());
+            //xmlWriter.WriteElementString("Height", "182");
+            //xmlWriter.WriteElementString("Weight", "64");
+            //xmlWriter.WriteElementString("Ethnicity", "Caucasian");
+            }
         xmlWriter.WriteEndElement();//PatientDataAtPresent
         xmlWriter.WriteEndElement();//Patient
 
@@ -859,16 +932,66 @@ namespace EMR.PlugIn.Basic
         */
     }
 
-    private static void returnTestResult(string admission_id, string strXmlMessage)
+    private static string transformHeightFormat (string height)
     {
-        string token = SoapClient.CallSessionDiscover();
-        string task_id = SoapClient.CallTaskInsertByTaskCode(admission_id, token);
-        string form_id = SoapClient.CallTaskFormList(task_id, token);
-        string answer_id = SoapClient.CallFormGetSummary(form_id, token);
-        SoapClient.CallFormSetAnswer(token, form_id, answer_id, admission_id, strXmlMessage);
-        MessageBox.Show("Form " + form_id + " updated.");
+        double height_number = Convert.ToDouble(height);
+        height_number = height_number / 100;
+        //MessageBox.Show("chibato: " + height_number.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
+        return height_number.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
     }
 
+    private static void returnTestResult(string cip, string strXmlMessage)
+    {
+        string token = SoapClient.CallSessionDiscover();
+        SoapClient.CallSessionLanguage(token, "EN");
+        SoapClient.CallSessionGetRoleList(token);
+        SoapClient.CallSessionRole(token);
+        SoapClient.CallSessionGetTeamList(token);
+        SoapClient.CallSessionSetTeam(token);
+        string case_id = SoapClient.CallCaseInsert(cip, token);
+        Dictionary<string, string> patient_finded = SoapClient.CallCaseGet(token, case_id);
+        string admission_id = SoapClient.CallAdmissionListCase(case_id, token);
+        //MessageBox.Show("admission_id: " + admission_id);
+        //la siguiente llamada es para añadir la tarea de PRE-CDA
+        string task_id_CDA = SoapClient.CallTaskInsertByTaskCode(admission_id, token, "PRE_CDA_TASK");
+        //MessageBox.Show("task_id_CDA: " + task_id_CDA);
+        string task_id = SoapClient.CallTaskInsertByTaskCode(admission_id, token);
+        //MessageBox.Show("task_id: " + task_id);
+        string form_id = SoapClient.CallTaskFormList(task_id, token);
+        //MessageBox.Show("form_id: " + form_id);
+        string answer_id = SoapClient.CallFormGetSummary(form_id, token);
+        //MessageBox.Show("answer_id: " + answer_id);
+        SoapClient.CallFormSetAnswer(token, form_id, answer_id, admission_id, strXmlMessage);
+        //MessageBox.Show("Form " + form_id + " updated.");
+
+        form_id = "";
+        Dictionary<string, string>[] data = SoapClient.CallTaskListOverdue(token);
+        for (int i = 0; i < data.Length; i++)
+        {
+            if ((data[i] != null) && (data[i]["admission_id"].Equals(admission_id)))
+            {
+                form_id = SoapClient.CallTaskFormList(data[i]["task_id"], token, "true");
+                SoapClient.CallFormSetAnswer(token, form_id, "1", data[i]["admission_id"], "S", "true");
+                //MessageBox.Show("Form bucle " + form_id + " updated.");
+            }
+        }
+        //MessageBox.Show("Form2 " + form_id + " updated.");
+    }
+
+    private static string xmlreaderToString(System.Xml.XmlReader reader)
+    {
+        StringBuilder sb = new StringBuilder();
+        string s = "";
+        if (reader != null)
+        {
+            while (reader.Read())
+                sb.AppendLine(reader.ReadOuterXml());
+
+            s = sb.ToString();
+            MessageBox.Show(s);
+        }
+        return s;
+    }
     #endregion
     }
 }

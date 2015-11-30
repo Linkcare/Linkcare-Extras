@@ -1,0 +1,7 @@
+<ndd><Command Type="SearchPatients"><Parameter Name="PatientID">EMR-177</Parameter><Parameter Name="LastName">My lastname</Parameter><Parameter Name="FirstName">My firstname</Parameter></Command><Patients>
+    <Patient ID="EMR-177">
+      <LastName>My lastname</LastName>
+      <FirstName>My firstname</FirstName>
+    </Patient>
+</Patients>
+</ndd>

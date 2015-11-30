@@ -3,19 +3,30 @@ using System.Xml;
 using System.Net;
 using System.IO;
 using System.Text;
+using System.Linq;
 using System.Web;
 using System.Collections.Generic;
-public class SoapClient {
+using System.Windows.Forms;
+using Newtonsoft.Json;
+
+public class SoapClient
+{
 
     public static class GlobalVar
     {
         static string _user;
         static string _password;
         static string _url;
-        static string _action;
+        static string _role;
+        static string _team;
         static string _progcode;
         static string _taskcode;
         static string _taskcodespirometryrequest;
+        static string _form_code;
+        static string _id;
+        static string _logs;
+        static string _config;
+        static string _patientsFile;
 
         public static string User
         {
@@ -53,15 +64,27 @@ public class SoapClient {
             }
         }
 
-        public static string Action
+        public static string Role
         {
             get
             {
-                return _action;
+                return _role;
             }
             set
             {
-                _action = value;
+                _role = value;
+            }
+        }
+
+        public static string Team
+        {
+            get
+            {
+                return _team;
+            }
+            set
+            {
+                _team = value;
             }
         }
 
@@ -74,6 +97,18 @@ public class SoapClient {
             set
             {
                 _progcode = value;
+            }
+        }
+
+        public static string Id
+        {
+            get
+            {
+                return _id;
+            }
+            set
+            {
+                _id = value;
             }
         }
 
@@ -100,33 +135,93 @@ public class SoapClient {
                 _taskcodespirometryrequest = value;
             }
         }
+
+        public static string Formcode
+        {
+            get
+            {
+                return _form_code;
+            }
+            set
+            {
+                _form_code = value;
+            }
+        }
+
+        public static string Logs
+        {
+            get
+            {
+                return _logs;
+            }
+            set
+            {
+                _logs = value;
+            }
+        }
+
+        public static string Config
+        {
+            get
+            {
+                return _config;
+            }
+            set
+            {
+                _config = value;
+            }
+        }
+
+        public static string PatientsFile
+        {
+            get
+            {
+                return _patientsFile;
+            }
+            set
+            {
+                _patientsFile = value;
+            }
+        }
     }
 
     public static void readConfigurationFile()
     {
+        var dir = Directory.GetParent(Directory.GetCurrentDirectory()).Parent.FullName;
+        GlobalVar.Logs = dir + @"\errors.log";
+        GlobalVar.Config = dir + @"\config.xml";
+        GlobalVar.PatientsFile = dir + @"\patients.xml";
+        MakeConfigFile();
         XmlDocument doc = new XmlDocument();
-        doc.Load(@"C:\Users\jcarballo\Desktop\config.xml");
+        doc.Load(GlobalVar.Config);
         XmlNodeList data = doc.GetElementsByTagName("data");
         XmlNodeList user = data[0].SelectNodes("user");
         XmlNodeList password = data[0].SelectNodes("password");
         XmlNodeList url = data[0].SelectNodes("url");
         XmlNodeList action = data[0].SelectNodes("action");
+        XmlNodeList role = data[0].SelectNodes("role");
+        XmlNodeList team = data[0].SelectNodes("team");
         XmlNodeList progcode = data[0].SelectNodes("progcode");
         XmlNodeList taskcode = data[0].SelectNodes("taskcode");
         XmlNodeList taskcodespirometryrequest = data[0].SelectNodes("taskcodespirometryrequest");
+        XmlNodeList formcode = data[0].SelectNodes("formcode");
+        XmlNodeList id = data[0].SelectNodes("id");
         GlobalVar.User = user[0].FirstChild.Value;
         GlobalVar.Password = password[0].FirstChild.Value;
         GlobalVar.Url = url[0].FirstChild.Value;
-        GlobalVar.Action = action[0].FirstChild.Value;
+        GlobalVar.Role = role[0].FirstChild.Value;
+        GlobalVar.Team = team[0].FirstChild.Value;
         GlobalVar.Progcode = progcode[0].FirstChild.Value;
         GlobalVar.Taskcode = taskcode[0].FirstChild.Value;
         GlobalVar.Taskcodespirometryrequest = taskcodespirometryrequest[0].FirstChild.Value;
+        GlobalVar.Formcode = formcode[0].FirstChild.Value;
+        GlobalVar.Id = id[0].FirstChild.Value;
     }
 
     private static string CallWebService(string xml)
     {
         XmlDocument soapEnvelopeXml = CreateSoapEnvelopeWithXML(xml);
-        HttpWebRequest webRequest = CreateWebRequest(GlobalVar.Url, GlobalVar.Action);
+        HttpWebRequest webRequest = CreateWebRequest(GlobalVar.Url);
         InsertSoapEnvelopeIntoWebRequest(soapEnvelopeXml, webRequest);
 
         // begin async call to web request.
@@ -140,7 +235,7 @@ public class SoapClient {
         string soapResult;
         using (WebResponse webResponse = webRequest.EndGetResponse(asyncResult))
         {
-            using (StreamReader rd = new StreamReader(webResponse.GetResponseStream()))
+            using (StreamReader rd = new StreamReader(webResponse.GetResponseStream(), System.Text.Encoding.UTF8, true))
             {
                 soapResult = rd.ReadToEnd();
             }
@@ -151,10 +246,10 @@ public class SoapClient {
 
     }
 
-    private static HttpWebRequest CreateWebRequest(string url, string action)
+    private static HttpWebRequest CreateWebRequest(string url)
     {
         HttpWebRequest webRequest = (HttpWebRequest)WebRequest.Create(url);
-        webRequest.Headers.Add("SOAPAction", action);
+        webRequest.Headers.Add("SOAPAction", "http://linkcare.es/LINKCARE");
         webRequest.ContentType = "text/xml;charset=\"utf-8\"";
         webRequest.Accept = "text/xml";
         webRequest.Method = "POST";
@@ -168,7 +263,7 @@ public class SoapClient {
             @"<soapenv:Envelope xmlns:xsi=""http://www.w3.org/2001/XMLSchema-instance"" xmlns:xsd=""http://www.w3.org/2001/XMLSchema"" xmlns:soapenv=""http://schemas.xmlsoap.org/soap/envelope/"" xmlns:lin=""http://linkcare.es/LINKCARE"">
                 <soapenv:Header/>
                 <soapenv:Body>
-                    "+xml+@"
+                    " + xml + @"
                 </soapenv:Body>
             </soapenv:Envelope>");
         return soapEnvelop;
@@ -197,8 +292,50 @@ public class SoapClient {
                          <device xsi:type=""xsd:string""></device>
                       </lin:session_init>";
         string soapResult = CallWebService(xml);
+        string error = SaveErrorLog(soapResult, "session_discover");
         string token = ParseToken(soapResult);
         return token;
+    }
+
+    public static void CallSessionGetRoleList(string token)
+    {
+        string xml = @"<lin:session_get_role_list soapenv:encodingStyle=""http://schemas.xmlsoap.org/soap/encoding/"">
+                         <session xsi:type=""xsd:string"">" + token + @"</session>
+                       </lin:session_get_role_list>";
+        string soapResult = CallWebService(xml);
+        string error = SaveErrorLog(soapResult, "session_get_role_list");
+        found_role_id(soapResult);
+    }
+
+    public static void CallSessionRole(string token)
+    {
+        string xml = @"<lin:session_role soapenv:encodingStyle=""http://schemas.xmlsoap.org/soap/encoding/"">
+                        <token xsi:type =""xsd:string"">" + token + @"</token>
+                        <role xsi:type=""xsd:string"">" + GlobalVar.Role + @"</role>
+                      </lin:session_role>";
+        string soapResult = CallWebService(xml);
+        string error = SaveErrorLog(soapResult, "session_role");
+
+    }
+
+    public static void CallSessionGetTeamList(string token)
+    {
+        string xml = @"<lin:session_get_team_list soapenv:encodingStyle=""http://schemas.xmlsoap.org/soap/encoding/"">
+                         <session xsi:type=""xsd:string"">" + token + @"</session>
+                       </lin:session_get_team_list>";
+        string soapResult = CallWebService(xml);
+        string error = SaveErrorLog(soapResult, "session_get_role_list");
+        found_team_id(soapResult);
+    }
+
+    public static void CallSessionSetTeam(string token)
+    {
+        string xml = @"<lin:session_set_team soapenv:encodingStyle=""http://schemas.xmlsoap.org/soap/encoding/"">
+                         <session xsi:type=""xsd:string"">" + token + @"</session>
+                         <team xsi:type=""xsd:string"">" + GlobalVar.Team + @"</team>
+                      </lin:session_set_team>";
+        string soapResult = CallWebService(xml);
+        string error = SaveErrorLog(soapResult, "session_set_team");
     }
 
     public static Dictionary<string, string>[] CallTaskListOverdue(string token)
@@ -209,6 +346,7 @@ public class SoapClient {
                          <offset xsi:type=""xsd:string"">0</offset>
                       </lin:task_list_overdue>";
         string soapResult = CallWebService(xml);
+        string error = SaveErrorLog(soapResult, "task_list_overdue");
         Dictionary<string, string>[] admissionIds = ParseAdmissionIds(soapResult);
         return admissionIds;
     }
@@ -220,11 +358,12 @@ public class SoapClient {
                          <task xsi:type=""xsd:string"">" + task_id + @"</task>
                       </lin:task_close>";
         string soapResult = CallWebService(xml);
+        string error = SaveErrorLog(soapResult, "task_close");
     }
 
     public static string CallCaseInsert(string cip, string token)
     {
-        string data = @"<?xml version=""1.0"" encoding=""UTF-8""?><case><ref></ref><given_name></given_name><family_name></family_name><refs><ref>NICK/</ref><ref>NIF/</ref><ref>NIE/</ref><ref>PAS/</ref><ref>CIP/" + cip + @"</ref></refs ><data><bdate></bdate><age></age><gender></gender><status></status><preferences><password_expire></password_expire></preferences></data></case>";
+        string data = @"<?xml version=""1.0"" encoding=""UTF-8""?><case><ref></ref><given_name></given_name><family_name></family_name><refs><ref>NICK/</ref><ref>NIF/</ref><ref>NIE/</ref><ref>PAS/</ref><ref>" + GlobalVar.Id + "/" + cip + @"</ref></refs ><data><bdate></bdate><age></age><gender></gender><status></status><preferences><password_expire></password_expire></preferences></data></case>";
 
         string cdata = HttpUtility.HtmlEncode(data);
 
@@ -233,11 +372,12 @@ public class SoapClient {
                             <case xsi:type=""xsd:string"">" + cdata + @"</case>
                        </lin:case_insert>";
         string soapResult = CallWebService(xml);
+        string error = SaveErrorLog(soapResult, "case_insert");
         string case_id = ParseCaseId(soapResult);
         return case_id;
     }
 
-    public static Dictionary<string, string> CallCaseGet(string case_id, string token)
+    public static Dictionary<string, string> CallCaseGet(string token, string case_id)
     {
         Dictionary<string, string> patient_data = new Dictionary<string, string>();
 
@@ -247,8 +387,22 @@ public class SoapClient {
                             <admission xsi:type=""xsd:string""></admission>
                        </lin:case_get>";
         string soapResult = CallWebService(xml);
+        string error = SaveErrorLog(soapResult, "case_get");
         patient_data = ParseDataPatient(soapResult);
         return patient_data;
+    }
+
+    public static string CallCaseForGetCip(string token, string case_id)
+    {
+        string xml = @"<lin:case_get soapenv:encodingStyle=""http://schemas.xmlsoap.org/soap/encoding/"">
+                            <session xsi:type=""xsd:string"">" + token + @"</session>
+                            <case xsi:type=""xsd:string"">" + case_id + @"</case>
+                            <admission xsi:type=""xsd:string""></admission>
+                       </lin:case_get>";
+        string soapResult = CallWebService(xml);
+        string error = SaveErrorLog(soapResult, "case_get");
+        string cip = ParseCip(soapResult);
+        return cip;
     }
 
     public static string CallAdmissionListCase(string case_id, string token)
@@ -258,34 +412,39 @@ public class SoapClient {
                          <case xsi:type=""xsd:string"">" + case_id + @"</case>
                       </lin:admission_list_case>";
         string soapResult = CallWebService(xml);
+        string error = SaveErrorLog(soapResult, "admission_list_case");
         string admission_id = ParseAdmissionFromCase(soapResult);
         return admission_id;
     }
 
-    public static string CallTaskInsertByTaskCode(string admission_id, string token)
+    public static string CallTaskInsertByTaskCode(string admission_id, string token, string taskcode = "")
     {
-        DateTime now = DateTime.Now;
-        string date_now = now.ToString().Replace("/", "-");
+        if (taskcode.Equals("")) taskcode = GlobalVar.Taskcode;
+
+        string date_now = DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss tt");
+        date_now = date_now.ToString().Replace("/", "-");
 
         string xml = @"<lin:task_insert_by_task_code soapenv:encodingStyle=""http://schemas.xmlsoap.org/soap/encoding/"">
                          <session xsi:type=""xsd:string"">" + token + @"</session>
                          <admission xsi:type=""xsd:string"">" + admission_id + @"</admission>
-                         <task_code xsi:type=""xsd:string"">" + GlobalVar.Taskcode + @"</task_code>
+                         <task_code xsi:type=""xsd:string"">" + taskcode + @"</task_code>
                          <date xsi:type=""xsd:string"">" + date_now + @"</date>
                       </lin:task_insert_by_task_code>";
         string soapResult = CallWebService(xml);
         string task_id = ParseTaskId(soapResult);
+        string error = SaveErrorLog(task_id, "task_insert_by_task_code");
         return task_id;
     }
 
-    public static string CallTaskFormList(string task_id, string token)
+    public static string CallTaskFormList(string task_id, string token, string for_request = "false")
     {
         string xml = @"<lin:task_form_list soapenv:encodingStyle=""http://schemas.xmlsoap.org/soap/encoding/"">
                          <session xsi:type=""xsd:string"">" + token + @"</session>
                          <task_id xsi:type=""xsd:string"">" + task_id + @"</task_id>
                        </lin:task_form_list>";
         string soapResult = CallWebService(xml);
-        string form_id = ParseFormId(soapResult);
+        string error = SaveErrorLog(soapResult, "task_form_list");
+        string form_id = ParseFormId(soapResult, for_request);
         return form_id;
     }
 
@@ -297,19 +456,28 @@ public class SoapClient {
                          <with_questions xsi:type=""xsd:string""></with_questions>
                       </lin:form_get_summary>";
         string soapResult = CallWebService(xml);
+        string error = SaveErrorLog(soapResult, "form_get_summary");
         string answer_id = ParseAnswerId(soapResult);
         return answer_id;
     }
 
-    public static void CallFormSetAnswer(string token, string form_id, string answer_id, string admission_id, string xml_to_save)
+    public static void CallFormSetAnswer(string token, string form_id, string answer_id, string admission_id, string xml_to_save, string for_request = "false")
     {
-        var plainTextBytes = System.Text.Encoding.UTF8.GetBytes(xml_to_save);
-        string value = System.Convert.ToBase64String(plainTextBytes);
+        string value = "";
+        if (for_request.Equals("false"))
+        {
+            var plainTextBytes = System.Text.Encoding.UTF8.GetBytes(xml_to_save);
+            value = admission_id + @"_ndd.xml|" + System.Convert.ToBase64String(plainTextBytes);
+        }
+        else
+        {
+            value = xml_to_save;
+        }
         string xml = @"<lin:form_set_answer soapenv:encodingStyle=""http://schemas.xmlsoap.org/soap/encoding/"">
                          <session xsi:type=""xsd:string"">" + token + @"</session>
                          <form_id xsi:type=""xsd:string"">" + form_id + @"</form_id>
                          <question_id xsi:type=""xsd:string"">" + answer_id + @"</question_id>
-                         <value xsi:type=""xsd:string"">" + admission_id + @"_ndd.xml|" + value + @"</value>
+                         <value xsi:type=""xsd:string"">" + value + @"</value>
                          <option_id xsi:type=""xsd:string""></option_id>
                          <event_id xsi:type=""xsd:string""></event_id>
                          <group_close xsi:type=""xsd:string""></group_close>
@@ -317,8 +485,51 @@ public class SoapClient {
                          <get_next_question xsi:type=""xsd:string""></get_next_question> 0
                       </lin:form_set_answer>";
         string soapResult = CallWebService(xml);
-        //string form_id = ParseFormId(soapResult);
-        //return form_id;
+        string error = SaveErrorLog(soapResult, "form_set_answer");
+    }
+
+    public static string CallAdmissionGet(string token, string admission_id)
+    {
+        string xml = @"<lin:admission_get soapenv:encodingStyle=""http://schemas.xmlsoap.org/soap/encoding/"">
+                         <session xsi:type=""xsd:string"">" + token + @"</session>
+                         <admission xsi:type=""xsd:string"">" + admission_id + @"</admission>
+                       </lin:admission_get>";
+        string soapResult = CallWebService(xml);
+        string error = SaveErrorLog(soapResult, "form_set_answer");
+        string case_id = ParseCaseIdFormAdmission(soapResult);
+        return case_id;
+    }
+
+    public static string CallFormulaExec (string token, string form_id)
+    {
+        string xml = @"<lin:formula_exec soapenv:encodingStyle=""http://schemas.xmlsoap.org/soap/encoding/"">
+                          <session xsi:type=""xsd:string"">" + token + @"</session>
+                          <form xsi:type=""xsd:string"">" + form_id + @"</form>
+                          <formula xsi:type=""xsd:string"">[""GET_VALUE(CASE, DATA_CODE, WEIGHT:last)"",""GET_VALUE(CASE, DATA_CODE, HEIGHT:last)"",""GET_VALUE(CASE, DATA_CODE, ETNICITY(DESC):last)""]</formula>
+                       </lin:formula_exec>";
+        string soapResult = CallWebService(xml);
+        string error = SaveErrorLog(soapResult, "formula_exec");
+        string h_w_e = ParseFormulaExecData(soapResult);
+        return h_w_e;
+    }
+
+    public static void CallSessionLanguage(string token, string language)
+    {
+        string xml = @"<lin:session_language soapenv:encodingStyle=""http://schemas.xmlsoap.org/soap/encoding/"">
+                            <token xsi:type=""xsd:string"">" + token + @"</token>
+                            <language xsi:type=""xsd:string"">" + language + @"</language>
+                       </lin:session_language>";
+        string soapResult = CallWebService(xml);
+        string error = SaveErrorLog(soapResult, "session_language");
+    }
+
+    private static string ParseFormulaExecData(string xmlString)
+    {
+        XmlDocument doc = new XmlDocument();
+        doc.LoadXml(xmlString);
+        XmlNodeList result = doc.GetElementsByTagName("value");
+        String[] data = JsonConvert.DeserializeObject<String[]>(result[0].InnerXml.ToString());
+        return String.Join("|", data);
     }
 
     private static string ParseToken(string xmlString)
@@ -334,6 +545,46 @@ public class SoapClient {
         return token;
     }
 
+    private static void found_role_id(string xmlString)
+    {
+        XmlDocument doc = new XmlDocument();
+        doc.LoadXml(xmlString);
+        XmlNodeList result = doc.GetElementsByTagName("result");
+        xmlString = HttpUtility.HtmlDecode(result[0].InnerXml.ToString());
+        doc.LoadXml(xmlString);
+        XmlNodeList roles = doc.SelectNodes("roles");
+        XmlNodeList role = roles[0].SelectNodes("role");
+        for (int i = 0; i < role.Count; i++)
+        {
+            XmlNodeList role_code = role[i].SelectNodes("code");
+            if (role_code[0].FirstChild.Value.Equals(GlobalVar.Role))
+            {
+                XmlNodeList id = role[i].SelectNodes("id");
+                GlobalVar.Role = id[0].FirstChild.Value;
+            }
+        }
+    }
+
+    private static void found_team_id(string xmlString)
+    {
+        XmlDocument doc = new XmlDocument();
+        doc.LoadXml(xmlString);
+        XmlNodeList result = doc.GetElementsByTagName("result");
+        xmlString = HttpUtility.HtmlDecode(result[0].InnerXml.ToString());
+        doc.LoadXml(xmlString);
+        XmlNodeList teams = doc.SelectNodes("teams");
+        XmlNodeList team = teams[0].SelectNodes("team");
+        for (int i = 0; i < team.Count; i++)
+        {
+            XmlNodeList team_name = team[i].SelectNodes("name");
+            if (team_name[0].FirstChild.Value.Equals(GlobalVar.Team))
+            {
+                XmlNodeList ref_team = team[i].SelectNodes("ref");
+                GlobalVar.Team = ref_team[0].FirstChild.Value;
+            }
+        }
+    }
+
     private static Dictionary<string, string>[] ParseAdmissionIds(string xmlString)
     {
         XmlDocument doc = new XmlDocument();
@@ -344,7 +595,7 @@ public class SoapClient {
         xmlString = HttpUtility.HtmlDecode(ResultUnique.InnerXml.ToString());
         doc.LoadXml(xmlString);
         XmlNodeList resultTasks = doc.GetElementsByTagName("task");
-        
+
         Dictionary<string, string>[] admissions = new Dictionary<string, string>[resultTasks.Count];
 
         int j = 0;
@@ -372,7 +623,7 @@ public class SoapClient {
                 j++;
             }
         }
-        
+
         return admissions;
     }
 
@@ -389,11 +640,13 @@ public class SoapClient {
         for (int i = 0; i < admission.Count; i++)
         {
             XmlNodeList admission_ref = admission[i].SelectNodes("ref");
+            XmlNodeList locked = admission[i].SelectNodes("locked");
             XmlNodeList data = admission[i].SelectNodes("data");
+            XmlNodeList status = data[0].SelectNodes("status");
             XmlNodeList subscription = data[0].SelectNodes("subscription");
             XmlNodeList program = subscription[0].SelectNodes("program");
             XmlNodeList prog_code = program[0].SelectNodes("prog_code");
-            if (prog_code[0].FirstChild.Value.Equals(GlobalVar.Progcode))
+            if (prog_code[0].FirstChild.Value.Equals(GlobalVar.Progcode) && (status[0].FirstChild.Value.Equals("ACTIVE") || status[0].FirstChild.Value.Equals("ENROLLED")))
             {
                 admission_id = admission_ref[0].FirstChild.Value;
             }
@@ -446,7 +699,7 @@ public class SoapClient {
 
         return data_patient;
     }
-    
+
     private static string ParseTaskId(string xmlString)
     {
         XmlDocument doc = new XmlDocument();
@@ -454,8 +707,8 @@ public class SoapClient {
         XmlNodeList result = doc.GetElementsByTagName("result");
         return result[0].FirstChild.Value;
     }
-    
-    private static string ParseFormId(string xmlString)
+
+    private static string ParseFormId(string xmlString, string for_request)
     {
         XmlDocument doc = new XmlDocument();
         doc.LoadXml(xmlString);
@@ -465,13 +718,21 @@ public class SoapClient {
         XmlNodeList forms = doc.SelectNodes("forms");
         XmlNodeList form = forms[0].SelectNodes("form");
         string spiro2_form_id = "";
-        for (int i=0; i< form.Count; i++)
+        if (for_request.Equals("true"))
         {
-            XmlNodeList form_code = form[i].SelectNodes("form_code");
-            if (form_code[0].FirstChild.Value.Equals("SPIROS2"))
+            XmlNodeList form_id = form[0].SelectNodes("ref");
+            spiro2_form_id = form_id[0].FirstChild.Value;
+        }
+        else
+        {
+            for (int i = 0; i < form.Count; i++)
             {
-                XmlNodeList form_id = form[i].SelectNodes("ref");
-                spiro2_form_id = form_id[0].FirstChild.Value;
+                XmlNodeList form_code = form[i].SelectNodes("form_code");
+                if (form_code[0].FirstChild.Value.Equals(GlobalVar.Formcode))
+                {
+                    XmlNodeList form_id = form[i].SelectNodes("ref");
+                    spiro2_form_id = form_id[0].FirstChild.Value;
+                }
             }
         }
         return spiro2_form_id;
@@ -500,6 +761,269 @@ public class SoapClient {
         }
         return answer_id;
     }
+    private static string SaveErrorLog(string xmlString, string ws)
+    {
+        if (ws.Equals("formula_exec"))
+        {
+            XmlDocument doc = new XmlDocument();
+            doc.LoadXml(xmlString);
+            XmlNodeList ErrorMsg = doc.GetElementsByTagName("error");
+            xmlString = HttpUtility.HtmlDecode(ErrorMsg[0].InnerXml.ToString());
+        }
+        else if (!ws.Equals("task_insert_by_task_code"))
+        {
+            XmlDocument doc = new XmlDocument();
+            doc.LoadXml(xmlString);
+            XmlNodeList ErrorMsg = doc.GetElementsByTagName("ErrorMsg");
+            xmlString = HttpUtility.HtmlDecode(ErrorMsg[0].InnerXml.ToString());
+        }
+        else
+        {
+            if (xmlString.Equals(""))
+            {
+                xmlString = "task not inserted";
+            }
+            else
+            {
+                xmlString = "";
+            }
+        }
+        DateTime now = DateTime.Now;
+        string date_now = now.ToString();
+        string texto = "";
+        if (xmlString.Equals(""))
+        {
+            texto = date_now + " " + ws + ": " + "completed";
+        }
+        else
+        {
+            texto = date_now + " " + ws + ": " + xmlString;
+            MessageBox.Show("A problem has been detected. Please, click accept button and check the file available at " + GlobalVar.Logs);
+        }
+        System.IO.StreamWriter sw = new System.IO.StreamWriter(GlobalVar.Logs, true);
+        sw.WriteLine(texto);
+        sw.Close();
+        return xmlString;
+    }
 
-    #endregion
+    private static string ParseCaseIdFormAdmission(string xmlString)
+    {
+        string case_id = "";
+        XmlDocument doc = new XmlDocument();
+        doc.LoadXml(xmlString);
+        XmlNodeList result = doc.GetElementsByTagName("result");
+        xmlString = HttpUtility.HtmlDecode(result[0].InnerXml.ToString());
+        doc.LoadXml(xmlString);
+        XmlNodeList admission = doc.SelectNodes("admission");
+        XmlNodeList data = admission[0].SelectNodes("data");
+        XmlNodeList casetag = data[0].SelectNodes("case");
+        XmlNodeList caseref = casetag[0].SelectNodes("ref");
+        case_id = caseref[0].FirstChild.Value;
+        return case_id;
+    }
+
+    private static string ParseCip(string xmlString)
+    {
+        string cip = "";
+        XmlDocument doc = new XmlDocument();
+        doc.LoadXml(xmlString);
+        XmlNodeList result = doc.GetElementsByTagName("result");
+        xmlString = HttpUtility.HtmlDecode(result[0].InnerXml.ToString());
+        doc.LoadXml(xmlString);
+        XmlNodeList casetag = doc.SelectNodes("case");
+        XmlNodeList refs = casetag[0].SelectNodes("refs");
+        XmlNodeList reftag = refs[0].SelectNodes("ref");
+        int i = 0;
+        bool found = false;
+        while ((i < reftag.Count) || (!found))
+        {
+            cip = reftag[i].FirstChild.Value;
+            if (cip.Contains("CIP/"))
+            {
+                cip = cip.Replace("CIP/", "");
+                found = true;
+            }
+            i++;
+        }
+        return cip;
+    }
+
+    private static void MakeConfigFile()
+    {
+        if (!File.Exists(GlobalVar.Config))
+        {
+            string texto = @"<?xml version=""1.0"" encoding=""UTF-8""?>
+<data>
+    <user>linkcarendd</user>
+    <password>linkcare</password>
+    <url>http://test.linkcare.es/ws/ServerWSDL.php</url>
+    <role>SERVICE</role>
+    <team>Linkcare</team>
+    <progcode>SPIROIOT2</progcode>
+    <taskcode>SPIRO:BAS</taskcode>
+    <taskcodespirometryrequest>SPIRO_REQUEST</taskcodespirometryrequest>
+    <formcode>SPIROS2</formcode>
+    <id>CIP</id>
+</data>";
+            System.IO.StreamWriter sw = new System.IO.StreamWriter(GlobalVar.Config);
+            sw.WriteLine(texto);
+            sw.Close();
+        }
+    }
+
+
+    public static void CheckPatient(string cip, Dictionary<string, string> data)
+    {
+        if (File.Exists(GlobalVar.PatientsFile))
+        {
+            using (StreamReader read = new StreamReader(GlobalVar.PatientsFile))
+            {
+                string contents = read.ReadToEnd();
+                if (!contents.Contains(data["task_id"] + "|" + data["admission_id"] + "|" + data["name"] + "|" + data["surname"] + "|" + data["gender"] + "|" + data["bdate"] + "|" + cip))
+                {
+                    read.Close();
+                    using (StreamWriter write = new StreamWriter(GlobalVar.PatientsFile, true))
+                    {
+                        write.WriteLine(data["task_id"] + "|" + data["admission_id"] + "|" + data["name"] + "|" + data["surname"] + "|" + data["gender"] + "|" + data["bdate"] + "|" + cip);
+                    }
+                }
+            }
+        }
+        else
+        {
+            using (StreamWriter write = new StreamWriter(GlobalVar.PatientsFile, true))
+            {
+                write.WriteLine(data["task_id"] + "|" + data["admission_id"] + "|" + data["name"] + "|" + data["surname"] + "|" + data["gender"] + "|" + data["bdate"] + "|" + cip);
+            }
+        }
+    }
+
+    public static Dictionary<string, string>[] ReadPatientFile(int tam)
+    {
+        System.IO.StreamReader sr = new System.IO.StreamReader(GlobalVar.PatientsFile);
+        String oneLine = sr.ReadLine();
+        int i = 0;
+
+        //recorro el fichero para ver el número de filas (pacientes) que contiene
+        while (oneLine != null)
+        {
+            oneLine = sr.ReadLine();
+            i++;
+        }
+
+        sr.DiscardBufferedData();
+        sr.BaseStream.Seek(0, SeekOrigin.Begin);
+
+        //con el número de pacientes del fichero, declaramos el tamaño de la matriz de dictionary
+        Dictionary<string, string>[] data_patient = new Dictionary<string, string>[i];
+
+        oneLine = sr.ReadLine();
+        i = 0;
+        while (oneLine != null)
+        {
+            //MessageBox.Show(oneLine);
+            string[] fields = oneLine.Split('|');
+            data_patient[i] = new Dictionary<string, string>();
+            data_patient[i].Add("task_id", fields[0]);
+            data_patient[i].Add("admission_id", fields[1]);
+            data_patient[i].Add("name", fields[2]);
+            data_patient[i].Add("surname", fields[3]);
+            data_patient[i].Add("gender", fields[4]);
+            data_patient[i].Add("bdate", fields[5]);
+            data_patient[i].Add("cip", fields[6]);
+            oneLine = sr.ReadLine();
+            i++;
+        }
+
+        sr.Close();
+        return data_patient;
+    }
+
+    public static Dictionary<string, string>[] ComparePatientsLists(Dictionary<string, string>[] patients_in_Linkcare, Dictionary<string, string>[] patients_in_File)
+    {
+        string[] cips_File = new string[patients_in_File.Length];
+        for (int runs = 0; runs < patients_in_File.Length; runs++)
+        {
+            cips_File[runs] = patients_in_File[runs]["cip"];
+        }
+
+        string[] cips_Linkcare = new string[patients_in_Linkcare.Length];
+        for (int runs = 0; runs < patients_in_Linkcare.Length; runs++)
+        {
+            cips_Linkcare[runs] = patients_in_Linkcare[runs]["cip"];
+        }
+
+        var nonIntersect = cips_File.Except(cips_Linkcare);
+        Dictionary<string, string>[] data_patient = new Dictionary<string, string>[nonIntersect.LongCount()];
+        int i = 0;
+
+        foreach (string value in nonIntersect)
+        {
+            foreach (Dictionary<string, string> patient in patients_in_File)
+            {
+                if (patient["cip"] == value)
+                {
+                    data_patient[i] = patient;
+                    i++;
+                    break;
+                }
+            }
+            //MessageBox.Show(value);
+        }
+
+        return data_patient;
+        #endregion
+    }
+
+    public static void RemoveFromFile(Dictionary<string, string> data)
+    {
+        if (File.Exists(GlobalVar.PatientsFile))
+        {
+            /*
+            string line = null;
+            string line_to_delete = data["task_id"] + "|" + data["admission_id"] + "|" + data["name"] + "|" + data["surname"] + "|" + data["gender"] + "|" + data["bdate"] + "|" + data["cip"];
+
+            var oStream = new FileStream(GlobalVar.PatientsFile, FileMode.Append, FileAccess.Write, FileShare.Read);
+            var iStream = new FileStream(GlobalVar.PatientsFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+
+            StreamWriter writer = new StreamWriter(oStream);
+            StreamReader reader = new StreamReader(iStream);
+
+            using (reader)
+            {
+                //string contents = reader.ReadToEnd();
+                using (writer)
+                {
+                    String oneLine = reader.ReadLine();
+                    while (oneLine != null)
+                    {
+                        if (String.Compare(oneLine, line_to_delete) == 0)
+                        {
+                            writer.WriteLine(line);
+                            break;
+                        }
+                        oneLine = reader.ReadLine();
+                    }
+                }
+            }
+            */
+            string tempFile = Path.GetTempFileName();
+            string line_to_delete = data["task_id"] + "|" + data["admission_id"] + "|" + data["name"] + "|" + data["surname"] + "|" + data["gender"] + "|" + data["bdate"] + "|" + data["cip"];
+
+            using (var sr = new StreamReader(GlobalVar.PatientsFile))
+            using (var sw = new StreamWriter(tempFile))
+            {
+                string line;
+
+                while ((line = sr.ReadLine()) != null)
+                {
+                    if (line != line_to_delete)
+                        sw.WriteLine(line);
+                }
+            }
+
+            File.Delete(GlobalVar.PatientsFile);
+            File.Move(tempFile, GlobalVar.PatientsFile);
+        }
+    }
 }

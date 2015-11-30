@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<data>
+    <user>linkcarendd</user>
+    <password>linkcare</password>
+    <url>http://test.linkcare.es/ws/ServerWSDL.php</url>
+    <role>SERVICE</role>
+    <team>Linkcare</team>
+    <progcode>SPIROIOT2</progcode>
+    <taskcode>SPIRO:BAS</taskcode>
+    <taskcodespirometryrequest>SPIRO_REQUEST</taskcodespirometryrequest>
+    <formcode>SPIROS2</formcode>
+    <id>CIP</id>
+</data>

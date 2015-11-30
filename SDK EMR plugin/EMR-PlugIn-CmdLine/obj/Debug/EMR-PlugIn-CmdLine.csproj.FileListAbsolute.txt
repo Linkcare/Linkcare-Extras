@@ -5,3 +5,5 @@
 \\psf\Home\Desktop\SDK EMR plugin\EMR-PlugIn-CmdLine\obj\Debug\EMR-PlugIn-CmdLine.csproj.GenerateResource.Cache
 \\psf\Home\Desktop\SDK EMR plugin\EMR-PlugIn-CmdLine\obj\Debug\EMR.PlugIn.CmdLine.dll
 \\psf\Home\Desktop\SDK EMR plugin\EMR-PlugIn-CmdLine\obj\Debug\EMR.PlugIn.CmdLine.pdb
+\\psf\Home\Desktop\SDK EMR plugin\EMR-PlugIn-CmdLine\bin\Debug\Newtonsoft.Json.dll
+\\psf\Home\Desktop\SDK EMR plugin\EMR-PlugIn-CmdLine\bin\Debug\Newtonsoft.Json.xml
