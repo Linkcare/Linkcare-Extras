@@ -736,10 +736,10 @@ namespace EMR.PlugIn.Basic
                     string height = words[1];
                     height = transformHeightFormat(height);
                     string weight = words[0].Substring(0, words[0].Length - 2);
-                    string etnicity = words[2];
+                    string etnicity = ethnicityDiscover(words[2]);
                     xmlWriter.WriteElementString("Height", height);
                     xmlWriter.WriteElementString("Weight", weight);
-                    xmlWriter.WriteElementString("Ethnicity", etnicity.ToLower());
+                    xmlWriter.WriteElementString("Ethnicity", etnicity);
                     //xmlWriter.WriteElementString("Height", "182");
                     //xmlWriter.WriteElementString("Weight", "64");
                     //xmlWriter.WriteElementString("Ethnicity", "Caucasian");
@@ -873,10 +873,10 @@ namespace EMR.PlugIn.Basic
             string height = words[1];
             height = transformHeightFormat(height);
             string weight = words[0].Substring(0, words[0].Length - 2);
-            string etnicity = words[2];
+            string etnicity = ethnicityDiscover(words[2]);
             xmlWriter.WriteElementString("Height", height);
             xmlWriter.WriteElementString("Weight", weight);
-            xmlWriter.WriteElementString("Ethnicity", etnicity.ToLower());
+            xmlWriter.WriteElementString("Ethnicity", etnicity);
             //xmlWriter.WriteElementString("Height", "182");
             //xmlWriter.WriteElementString("Weight", "64");
             //xmlWriter.WriteElementString("Ethnicity", "Caucasian");
@@ -938,6 +938,27 @@ namespace EMR.PlugIn.Basic
         height_number = height_number / 100;
         //MessageBox.Show("chibato: " + height_number.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
         return height_number.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private static string ethnicityDiscover(string ethnicity)
+    {
+        switch (ethnicity)
+        {
+            case "CAUCASIAN":
+            case "ASIAN":
+                ethnicity = ethnicity.ToLower();
+            break;
+            case "HISPANIC OR LATINO":
+                ethnicity = "hispanic";
+            break;
+            case "BLACK OR AFRICAN AMERICAN":
+                ethnicity = "african";
+            break;
+            default:
+                ethnicity = "other_ethnic";
+            break;
+        }
+        return ethnicity;
     }
 
     private static void returnTestResult(string cip, string strXmlMessage)

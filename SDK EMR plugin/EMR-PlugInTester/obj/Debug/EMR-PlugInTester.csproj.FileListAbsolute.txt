@@ -8,4 +8,3 @@
 \\psf\Home\Desktop\SDK EMR plugin\EMR-PlugInTester\obj\Debug\EMR.PlugInTester.pdb
 \\psf\Home\Desktop\SDK EMR plugin\EMR-PlugInTester\bin\Debug\Newtonsoft.Json.dll
 \\psf\Home\Desktop\SDK EMR plugin\EMR-PlugInTester\bin\Debug\Newtonsoft.Json.xml
-\\psf\Home\Desktop\SDK EMR plugin\EMR-PlugInTester\obj\Debug\EMR-PlugInTester.csprojResolveAssemblyReference.cache

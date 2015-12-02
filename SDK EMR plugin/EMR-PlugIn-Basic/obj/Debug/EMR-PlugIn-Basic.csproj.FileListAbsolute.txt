@@ -7,4 +7,3 @@
 \\psf\Home\Desktop\SDK EMR plugin\EMR-PlugIn-Basic\bin\Debug\Newtonsoft.Json.xml
 \\psf\Home\Desktop\SDK EMR plugin\EMR-PlugIn-Basic\obj\Debug\EMR.PlugIn.Basic.dll
 \\psf\Home\Desktop\SDK EMR plugin\EMR-PlugIn-Basic\obj\Debug\EMR.PlugIn.Basic.pdb
-\\psf\Home\Desktop\SDK EMR plugin\EMR-PlugIn-Basic\obj\Debug\EMR-PlugIn-Basic.csprojResolveAssemblyReference.cache
